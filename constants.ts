@@ -6,6 +6,10 @@ export const ADMIN_EMAIL = "ga.albergoni@gmail.com";
 // O sistema inicia sem usuários. O primeiro a se cadastrar com o ADMIN_EMAIL ganha poderes de Admin.
 export const INITIAL_USERS: User[] = [];
 
+export const AVAILABLE_ICONS = [
+  'Globe', 'Trophy', 'Video', 'ImageIcon', 'BookOpen', 'Lightbulb', 'PlayCircle', 'Camera', 'Target', 'Info', 'MessageSquare', 'Zap', 'RefreshCw', 'Layers', 'ShieldCheck', 'Heart', 'Star', 'Gamepad2', 'Sword', 'Map', 'Compass', 'Flag', 'Key', 'Lock', 'Unlock', 'Settings', 'User', 'Users', 'Home', 'Search', 'Bell', 'Mail', 'Calendar', 'Clock', 'CheckCircle2', 'AlertTriangle', 'AlertCircle', 'HelpCircle', 'ExternalLink', 'Plus', 'Minus', 'X', 'ChevronRight', 'ChevronLeft', 'ArrowRight', 'ArrowLeft', 'Download', 'Upload', 'Share2', 'Trash2', 'Edit3', 'Save'
+];
+
 export const INITIAL_WALLPAPERS: ProfileWallpaper[] = [
   {
     id: 'wp_001',

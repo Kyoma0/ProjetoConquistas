@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigateProfile }) => {
                     >
                         <div className="relative">
                             <img 
-                                src={currentUser.avatar} 
+                                src={currentUser.avatar || undefined} 
                                 alt={currentUser.name} 
                                 className={`w-10 h-10 rounded object-cover border-2 ${currentUser.isAdmin ? 'border-red-500' : 'border-steam-highlight'} group-hover:scale-105 transition-transform`} 
                             />

@@ -177,7 +177,7 @@ export const CommunitiesView: React.FC = () => {
                   return (
                     <div key={m.userId} className="flex items-center justify-between group">
                       <div className="flex items-center gap-3">
-                        <img src={user.avatar} className="w-8 h-8 rounded-full border border-transparent" alt={user.name} />
+                        <img src={user.avatar || undefined} className="w-8 h-8 rounded-full border border-transparent" alt={user.name} />
                         <div>
                           <div className="text-[11px] font-black text-white truncate w-24">{user.name}</div>
                           <div className="text-[8px] text-steam-highlight font-black uppercase tracking-widest">{m.role === 'admin' ? 'Admin' : 'Membro'}</div>
@@ -240,7 +240,7 @@ export const CommunitiesView: React.FC = () => {
                     <div key={post.id} className="bg-steam-dark p-8 rounded-3xl border border-transparent hover:border-transparent transition-all group">
                       <div className="flex items-start justify-between mb-6">
                         <div className="flex items-center gap-4">
-                          <img src={author?.avatar} className="w-12 h-12 rounded-xl border border-transparent" alt={author?.name} />
+                          <img src={author?.avatar || undefined} className="w-12 h-12 rounded-xl border border-transparent" alt={author?.name} />
                           <div>
                             <div className="text-sm font-black text-white uppercase tracking-tight">{author?.name}</div>
                             <div className="text-[8px] text-gray-500 uppercase font-black tracking-widest flex items-center gap-2">

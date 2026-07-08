@@ -1,8 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { Game, GameContextType, User, UserAchievementProgress, AchievementStatus, Achievement, Content, PendingValidation, ValidationLog, UserGoal, ToastMessage, Feedback, ProfileWallpaper, RewardRoomSettings, SystemSettings, StoreItem, GameEvent, Message, Transaction, FriendRequest, CommunityGroup, CommunityPost, CommunityMember, GeneralNotification, DeviceType, Viewport, LevelConfig } from '../types';
+import { Game, GameContextType, User, UserAchievementProgress, AchievementStatus, Achievement, Content, PendingValidation, ValidationLog, UserGoal, ToastMessage, Feedback, ProfileWallpaper, RewardRoomSettings, SystemSettings, StoreItem, GameEvent, Message, Transaction, FriendRequest, CommunityGroup, CommunityPost, CommunityMember, GeneralNotification, DeviceType, Viewport, LevelConfig, SubPage } from '../types';
 import { ADMIN_EMAIL, INITIAL_WALLPAPERS } from '../constants';
 import { Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { 
   auth, db, googleProvider,
   signInWithEmailAndPassword, 
@@ -63,6 +64,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [storeItems, setStoreItems] = useState<StoreItem[]>([]);
   const [events, setEvents] = useState<GameEvent[]>([]);
   const [contents, setContents] = useState<Content[]>([]);
+  const [subPages, setSubPages] = useState<SubPage[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [wallpapers, setWallpapers] = useState<ProfileWallpaper[]>([]);
   const [userProgress, setUserProgress] = useState<Record<string, UserAchievementProgress>>({});
@@ -137,7 +139,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Initial fetch
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid)).catch(e => handleFirestoreError(e, OperationType.GET, `users/${firebaseUser.uid}`));
           if (userDoc.exists()) {
-            setCurrentUser(userDoc.data() as User);
+            const data = userDoc.data() as User;
+            if (data.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && (!data.isAdmin || !data.isVip)) {
+              const updatedData = { ...data, isAdmin: true, isVip: true };
+              await updateDoc(doc(db, 'users', firebaseUser.uid), { isAdmin: true, isVip: true }).catch(console.error);
+              setCurrentUser(updatedData);
+            } else {
+              setCurrentUser(data);
+            }
             setPendingUser(null);
           } else {
             setPendingUser({
@@ -151,7 +160,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Set up real-time listener for the current user
           const userUnsubscribe = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
             if (docSnap.exists()) {
-              setCurrentUser(docSnap.data() as User);
+              const data = docSnap.data() as User;
+              if (data.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && (!data.isAdmin || !data.isVip)) {
+                setCurrentUser({ ...data, isAdmin: true, isVip: true });
+              } else {
+                setCurrentUser(data);
+              }
             }
           }, (error) => {
             console.error("Error in user real-time listener:", error, {
@@ -183,12 +197,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-
   const showToast = (message: string, type: 'success' | 'error' | 'info', onClick?: () => void) => {
-    const id = Date.now().toString();
-    setToast({ id, message, type, onClick });
-    setTimeout(() => setToast(prev => prev?.id === id ? null : prev), 5000); // Increased to 5s for clickable toasts
+    const options = onClick ? { action: { label: 'Abrir', onClick } } : {};
+    if (type === 'success') toast.success(message, options);
+    else if (type === 'error') toast.error(message, options);
+    else toast.info(message, options);
   };
 
   const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
@@ -253,6 +266,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           { name: 'generalNotifications', setter: setGeneralNotifications },
           { name: 'levels', setter: setLevels },
           { name: 'contents', setter: setContents },
+          { name: 'subPages', setter: setSubPages },
           { name: 'wallpapers', setter: setWallpapers },
         ];
 
@@ -601,7 +615,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         handleFirestoreError(firestoreErr, OperationType.CREATE, `users/${firebaseUser.uid}`);
       }
     } catch (err: any) {
-      console.error("Erro no processo de cadastro:", err);
+      const isExpectedAuthError = [
+        'auth/email-already-in-use',
+        'auth/invalid-email',
+        'auth/weak-password',
+        'auth/operation-not-allowed'
+      ].includes(err.code);
+
+      if (isExpectedAuthError) {
+        console.warn("Aviso no processo de cadastro:", err);
+      } else {
+        console.error("Erro no processo de cadastro:", err);
+      }
       
       let msg = "Erro ao cadastrar.";
       if (err.code === 'auth/email-already-in-use') msg = "Este e-mail já está em uso.";
@@ -1343,6 +1368,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addSubPage = async (subPage: SubPage) => {
+    try {
+      await setDoc(doc(db, 'subPages', subPage.id), sanitize(subPage));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `subPages/${subPage.id}`);
+    }
+  };
+
+  const updateSubPage = async (subPage: SubPage) => {
+    try {
+      await setDoc(doc(db, 'subPages', subPage.id), sanitize(subPage));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `subPages/${subPage.id}`);
+    }
+  };
+
+  const deleteSubPage = async (subPageId: string) => {
+    try {
+      // Delete all contents of this sub-page
+      const q = query(collection(db, 'contents'), where('subPageId', '==', subPageId));
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+      
+      await deleteDoc(doc(db, 'subPages', subPageId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `subPages/${subPageId}`);
+    }
+  };
+
   const syncSteamAchievements = async (steamId: string, gameId: string) => {
     const game = games.find(g => g.id === gameId);
     if (!game || !game.steamAppId) {
@@ -1561,7 +1619,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{ 
-      games, achievements, contents, users, wallpapers, storeItems, events, currentUser, userProgress, feedbacks, pendingValidations, validationLogs, userGoals, toast, rewardSettings, systemSettings,
+      games, achievements, contents, subPages, users, wallpapers, storeItems, events, currentUser, userProgress, feedbacks, pendingValidations, validationLogs, userGoals, rewardSettings, systemSettings,
       messages, unreadCounts, friendRequests,
       communityGroups, communityPosts, myCommunityMemberships, generalNotifications, myReadNotifications,
       isAuthReady,
@@ -1576,6 +1634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       pendingUser,
       approveValidation, rejectValidation, submitForAnalysis,
       addGame, updateGame, deleteGame, addAchievement, updateAchievement, deleteAchievement, addContent, updateContent, deleteContent,
+      addSubPage, updateSubPage, deleteSubPage,
       addWallpaper, deleteWallpaper, addStoreItem, updateStoreItem, deleteStoreItem, addEvent, updateEvent, deleteEvent,
       toggleBanUser, toggleAdminUser, toggleVipUser, toggleFriend, sendFriendRequest, respondToFriendRequest, toggleLibrary, toggleFavorite, validateWithImage: async () => [],
       showConfirm

@@ -83,18 +83,36 @@
         "id": { "type": "string" },
         "gameId": { "type": "string" },
         "achievementId": { "type": "string" },
+        "subPageId": { "type": "string" },
         "category": { "type": "string" },
         "title": { "type": "string" },
-        "type": { "type": "string", "enum": ["video", "image", "text", "tip", "list", "alert"] },
+        "type": { "type": "string", "enum": ["video", "image", "text", "tip", "list", "alert", "button", "interactive-image"] },
         "content": { "type": "string" },
         "synopsis": { "type": "string" },
         "author": { "type": "string" },
         "order": { "type": "number" },
-        "width": { "type": "string", "enum": ["25%", "50%", "75%", "100%"] },
+        "width": { "type": "string", "enum": ["25%", "33%", "50%", "66%", "75%", "100%"] },
         "alignment": { "type": "string", "enum": ["left", "right", "center", "top", "bottom"] },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "buttons": { "type": "array", "items": { "type": "object" } },
+        "hotspots": { "type": "array", "items": { "type": "object" } },
+        "zoom": { "type": "number" }
       },
       "required": ["id", "gameId", "title", "type", "content"]
+    },
+    "SubPage": {
+      "title": "SubPage",
+      "description": "Internal page for a game with its own content blocks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "gameId": { "type": "string" },
+        "title": { "type": "string" },
+        "parentContentId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "gameId", "title"]
     },
     "Feedback": {
       "title": "Feedback",
@@ -393,6 +411,10 @@
     "/contents/{contentId}": {
       "schema": "Content",
       "description": "Guide content"
+    },
+    "/subPages/{subPageId}": {
+      "schema": "SubPage",
+      "description": "Internal game pages"
     },
     "/adminBalanceLogs/{logId}": {
       "schema": "AdminBalanceLog",

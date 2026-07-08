@@ -311,7 +311,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId }) => {
                     preload="auto"
                     onError={() => setVideoError(true)}
                     className="w-full h-full object-cover"
-                    src={url}
+                    src={url || undefined}
                     onCanPlay={e => {
                         const playPromise = e.currentTarget.play();
                         if (playPromise !== undefined) {
@@ -322,7 +322,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId }) => {
             );
         }
         
-        return <img key={`img-${url}`} src={url} onError={() => setVideoError(true)} className="w-full h-full object-cover transition-all" alt="Background" />;
+        return <img key={`img-${url}`} src={url || undefined} onError={() => setVideoError(true)} className="w-full h-full object-cover transition-all" alt="Background" />;
     };
 
     const renderOverview = () => (
@@ -387,7 +387,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId }) => {
                             <h3 className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em] mb-8">Foco Atual</h3>
                             <div className="flex gap-6 items-center mb-8">
                                 <div className="relative">
-                                    <img src={bestOngoingGame.game.coverUrl} className="w-16 h-24 object-cover rounded-xl shadow-2xl border border-white/10 group-hover/ongoing:scale-105 transition-transform duration-500" />
+                                    <img src={bestOngoingGame.game.coverUrl || undefined} className="w-16 h-24 object-cover rounded-xl shadow-2xl border border-white/10 group-hover/ongoing:scale-105 transition-transform duration-500" />
                                     <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"></div>
                                 </div>
                                 <div className="flex-1">
@@ -450,7 +450,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId }) => {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div className="flex gap-6 items-center relative z-10">
                         <div className="relative shrink-0">
-                            <img src={stat.game.coverUrl} className="w-16 h-24 object-cover rounded-xl shadow-2xl border border-white/10 group-hover:scale-105 transition-transform duration-500" />
+                            <img src={stat.game.coverUrl || undefined} className="w-16 h-24 object-cover rounded-xl shadow-2xl border border-white/10 group-hover:scale-105 transition-transform duration-500" />
                             <div className="absolute inset-0 rounded-xl shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"></div>
                         </div>
                         <div className="flex-1">
@@ -718,7 +718,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId }) => {
                     <div className="flex flex-col md:flex-row gap-8 items-center md:items-end">
                         <div className="relative group shrink-0">
                             <img 
-                                src={isEditing ? editData.avatar : targetUser.avatar} 
+                                src={(isEditing ? editData.avatar : targetUser.avatar) || undefined} 
                                 className="w-32 h-32 md:w-40 md:h-40 rounded-3xl border-4 border-steam-base shadow-[0_15px_50px_rgba(0,0,0,0.7)] object-cover bg-steam-dark" 
                             />
                             {isEditing && isOwnProfile && (
@@ -937,7 +937,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId }) => {
                                             {isVideoBackground(wp.url) ? (
                                                 <video 
                                                     key={`gallery-${wp.url}`}
-                                                    src={wp.url} 
+                                                    src={wp.url || undefined} 
                                                     className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all" 
                                                     muted 
                                                     loop 
@@ -957,7 +957,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId }) => {
                                             ) : (
                                                 <img 
                                                     key={`gallery-img-${wp.url}`}
-                                                    src={wp.url} 
+                                                    src={wp.url || undefined} 
                                                     className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all" 
                                                     alt={wp.title}
                                                 />

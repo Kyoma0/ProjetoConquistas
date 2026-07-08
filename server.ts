@@ -7,8 +7,10 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
 import fs from 'fs';
+import sharp from 'sharp';
 import { sendConfirmationEmail, sendPasswordResetEmail } from './services/emailService';
 import { ADMIN_EMAIL } from './constants';
+import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +24,12 @@ async function startServer() {
   const uploadsDir = path.join(__dirname, 'public', 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  // Ensure tiles directory exists
+  const tilesDir = path.join(__dirname, 'public', 'tiles');
+  if (!fs.existsSync(tilesDir)) {
+    fs.mkdirSync(tilesDir, { recursive: true });
   }
 
   // WebSocket Server for Chunked Uploads and Real-time Chat
@@ -130,6 +138,56 @@ async function startServer() {
   app.use(cors());
   app.use(express.json({ limit: '1024mb' }));
   app.use(express.urlencoded({ limit: '1024mb', extended: true }));
+
+  // --- GEMINI PROXY CHAT ENDPOINT ---
+  app.post('/api/chat', async (req, res) => {
+    const { messages, gameTitle } = req.body;
+    if (!messages || !Array.isArray(messages) || !gameTitle) {
+      return res.status(400).json({ error: 'Parâmetros inválidos: messages e gameTitle são obrigatórios.' });
+    }
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error('Chave de API GEMINI_API_KEY não configurada no servidor.');
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
+      const model = "gemini-3.5-flash";
+      const systemInstruction = `Você é um assistente especialista em videogames, focado especificamente no jogo "${gameTitle}". 
+      Sua missão é ajudar o jogador com dicas, estratégias, localização de itens e guias de conquistas.
+      Seja amigável, use termos de gamer e mantenha as respostas concisas e úteis.
+      Se o jogador perguntar algo fora do contexto de "${gameTitle}", tente gentilmente trazer o assunto de volta para o jogo ou diga que seu conhecimento é focado neste título.`;
+
+      const sdkContents = messages.map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.text }]
+      }));
+
+      const response = await ai.models.generateContent({
+        model,
+        contents: sdkContents,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        }
+      });
+
+      const text = response.text || 'Desculpe, tive um problema ao processar sua resposta. Pode tentar novamente?';
+      res.json({ text });
+    } catch (error: any) {
+      console.error('Erro na rota /api/chat:', error);
+      res.status(500).json({ error: 'Erro ao gerar conteúdo com Gemini', details: error.message });
+    }
+  });
 
   // --- STEAM AUTH & API PROXY ---
   app.get('/api/auth/steam/url', (req, res) => {
@@ -344,6 +402,56 @@ async function startServer() {
     }
   });
 
+  // --- IMAGE TILING API ---
+  app.post('/api/tile-image', async (req, res) => {
+    const { imageUrl, mapId } = req.body;
+    if (!imageUrl || !mapId) {
+      return res.status(400).json({ error: 'imageUrl and mapId are required' });
+    }
+
+    try {
+      const targetDir = path.join(tilesDir, mapId);
+      
+      // Check if already tiled
+      if (fs.existsSync(targetDir)) {
+        return res.json({ baseUrl: `/tiles/${mapId}` });
+      }
+
+      // If imageUrl is local (starts with /uploads), use local path
+      let imageSource: string | Buffer;
+      if (imageUrl.startsWith('/uploads/')) {
+        imageSource = path.join(__dirname, 'public', imageUrl.replace(/^\//, ''));
+        if (!fs.existsSync(imageSource)) {
+          console.warn(`Tiling skipped: Local file not found at ${imageSource}`);
+          return res.status(404).json({ error: 'Local image file not found', path: imageUrl });
+        }
+      } else {
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+        const arrayBuffer = await response.arrayBuffer();
+        imageSource = Buffer.from(arrayBuffer);
+      }
+
+      console.log(`Tiling image for map ${mapId}...`);
+      
+      // Generate tiles using sharp with Google layout (compatible with Leaflet)
+      // This creates a directory structure: {z}/{x}/{y}.png
+      await sharp(imageSource, { limitInputPixels: false })
+        .tile({
+          size: 256,
+          layout: 'google',
+          container: 'fs'
+        })
+        .toFile(targetDir);
+
+      console.log(`Tiling complete for map ${mapId}`);
+      res.json({ baseUrl: `/tiles/${mapId}` });
+    } catch (error) {
+      console.error('Tiling error:', error);
+      res.status(500).json({ error: 'Failed to tile image', details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   // Global error handler
   app.use((err: any, req: any, res: any, next: any) => {
     console.error('Server Error:', err);
@@ -352,6 +460,7 @@ async function startServer() {
 
   // Serve uploaded files
   app.use('/uploads', express.static(uploadsDir));
+  app.use('/tiles', express.static(tilesDir));
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

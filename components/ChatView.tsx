@@ -58,7 +58,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ userId, onBack }) => {
             </button>
             <div className="flex items-center gap-4">
                 <div className="relative">
-                    <img src={targetUser.avatar} className="w-12 h-12 rounded-xl object-cover border border-transparent" alt={targetUser.name} />
+                    <img src={targetUser.avatar || undefined} className="w-12 h-12 rounded-xl object-cover border border-transparent" alt={targetUser.name} />
                     <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-steam-green rounded-full border-2 border-steam-dark"></div>
                 </div>
                 <div>
@@ -84,7 +84,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ userId, onBack }) => {
           return (
             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-fade-in`}>
               {!isMe && (
-                <img src={targetUser.avatar} className="w-8 h-8 rounded-lg mr-3 mt-1 shrink-0" alt="Friend" />
+                <img src={targetUser.avatar || undefined} className="w-8 h-8 rounded-lg mr-3 mt-1 shrink-0" alt="Friend" />
               )}
               <div className={`max-w-[70%] space-y-1`}>
                 <div className={`p-4 rounded-2xl text-sm font-medium leading-relaxed shadow-xl border

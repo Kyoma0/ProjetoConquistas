@@ -87,7 +87,7 @@ const StoreItemCard: React.FC<{
       <div className="relative aspect-video overflow-hidden bg-black rounded-t-[32px]">
         {isVideo ? (
           <video 
-            src={item.image} 
+            src={item.image || undefined} 
             className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" 
             muted 
             loop 
@@ -95,7 +95,7 @@ const StoreItemCard: React.FC<{
             autoPlay={isHovered}
           />
         ) : (
-          <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={item.name} />
+          <img src={item.image || undefined} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={item.name} />
         )}
         
         {isVideo && (
@@ -392,9 +392,9 @@ export const StoreView: React.FC<StoreViewProps> = ({ onNavigateAds }) => {
                       <label className="text-[8px] text-gray-500 font-black uppercase mb-3 tracking-widest">Visualização do Admin</label>
                       <div className="w-full aspect-video rounded-2xl overflow-hidden border border-transparent bg-black">
                          {editingItem.image.endsWith('.mp4') || editingItem.image.endsWith('.webm') || editingItem.image.startsWith('data:video') ? (
-                            <video src={editingItem.image} className="w-full h-full object-cover" muted autoPlay loop playsInline />
+                            <video src={editingItem.image || undefined} className="w-full h-full object-cover" muted autoPlay loop playsInline />
                          ) : (
-                            <img src={editingItem.image} className="w-full h-full object-cover" alt="Preview" onError={(e) => (e.currentTarget.src = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop")} />
+                            <img src={editingItem.image || undefined} className="w-full h-full object-cover" alt="Preview" onError={(e) => (e.currentTarget.src = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop")} />
                          )}
                       </div>
                    </div>

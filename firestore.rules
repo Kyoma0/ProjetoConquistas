@@ -125,6 +125,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /subPages/{subPageId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /adminBalanceLogs/{logId} {
       allow read: if isAdmin();
       allow create: if isAdmin();

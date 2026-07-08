@@ -334,7 +334,7 @@ export const Lives: React.FC = () => {
 
                         <div className="flex justify-between items-center bg-white/5 p-6 rounded-2xl border border-transparent">
                             <div className="flex items-center gap-4">
-                                <img src={currentUser?.avatar} className="w-12 h-12 rounded-full border-2 border-red-500" alt="Avatar" />
+                                <img src={currentUser?.avatar || undefined} className="w-12 h-12 rounded-full border-2 border-red-500" alt="Avatar" />
                                 <div>
                                     <div className="text-white font-black uppercase text-sm">{currentUser?.name}</div>
                                     <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Master Achievement Creator</div>
@@ -386,7 +386,7 @@ export const Lives: React.FC = () => {
                     {activeStreams.length > 0 ? activeStreams.map(stream => (
                         <div key={stream.id} onClick={() => setSelectedLive(stream)} className="cursor-pointer group relative bg-steam-dark rounded-xl overflow-hidden border border-transparent hover:border-steam-highlight/50 transition-all shadow-2xl">
                             <div className="relative aspect-video">
-                                <img src={stream.bannerUrl || stream.coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60" alt={stream.title} />
+                                <img src={stream.bannerUrl || stream.coverUrl || undefined} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60" alt={stream.title} />
                                 <div className="absolute top-3 left-3 bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest flex items-center gap-1">
                                     <div className="w-1 h-1 bg-white rounded-full animate-ping"></div> AO VIVO
                                 </div>
@@ -419,7 +419,7 @@ export const Lives: React.FC = () => {
                 <div className="animate-scale-in max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10">
                     <div className="lg:col-span-2 space-y-6">
                         <div className="relative aspect-video bg-black rounded-2xl overflow-hidden shadow-5xl border border-transparent">
-                            <img src={selectedLive.bannerUrl || selectedLive.coverUrl} className="w-full h-full object-cover opacity-30 blur-sm" alt="Banner BG" />
+                            <img src={selectedLive.bannerUrl || selectedLive.coverUrl || undefined} className="w-full h-full object-cover opacity-30 blur-sm" alt="Banner BG" />
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                                 <Radio className={`w-24 h-24 mb-6 ${isConnected ? 'text-red-500 animate-pulse' : 'text-gray-700'}`} />
                                 <h2 className="text-2xl font-black text-white uppercase tracking-widest text-center px-10">
@@ -505,7 +505,7 @@ export const Lives: React.FC = () => {
                                             onClick={() => setStreamGame(game.title)}
                                             className={`p-2 rounded-xl border transition-all flex flex-col items-center gap-2 group ${streamGame === game.title ? 'bg-red-600/10 border-red-500' : 'bg-white/5 border-transparent hover:border-transparent'}`}
                                         >
-                                            <img src={game.coverUrl} className="w-full aspect-[2/3] object-cover rounded-lg group-hover:scale-105 transition-transform" />
+                                            <img src={game.coverUrl || undefined} className="w-full aspect-[2/3] object-cover rounded-lg group-hover:scale-105 transition-transform" />
                                             <span className={`text-[8px] font-black uppercase truncate w-full text-center ${streamGame === game.title ? 'text-red-500' : 'text-gray-500'}`}>{game.title}</span>
                                         </button>
                                     ))}

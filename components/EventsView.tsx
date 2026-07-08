@@ -97,7 +97,7 @@ export const EventsView: React.FC = () => {
             return (
               <div key={event.id} className="bg-steam-dark rounded-[40px] border border-transparent overflow-hidden group hover:border-steam-highlight/30 transition-all shadow-2xl relative flex flex-col">
                 <div className="relative aspect-[21/9] overflow-hidden bg-black shadow-inner">
-                  <img src={event.banner || 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=2071&auto=format&fit=crop'} className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-1000" alt={event.title} />
+                  <img src={event.banner || undefined} className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-1000" alt={event.title} />
                   <div className="absolute inset-0 bg-gradient-to-t from-steam-dark via-transparent to-transparent"></div>
                   
                   <div className="absolute top-6 left-6 flex gap-2">
@@ -225,7 +225,7 @@ export const EventsView: React.FC = () => {
                 {editingEvent?.banner && (
                    <div className="p-4 bg-black/80 rounded-3xl border border-transparent">
                       <div className="w-full aspect-[21/9] rounded-2xl overflow-hidden border border-transparent bg-black">
-                         <img src={editingEvent.banner} className="w-full h-full object-cover" alt="Preview" />
+                         <img src={editingEvent.banner || undefined} className="w-full h-full object-cover" alt="Preview" />
                       </div>
                    </div>
                 )}

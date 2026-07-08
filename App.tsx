@@ -1,5 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Toaster, toast } from 'sonner';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { AppProvider, useApp, useDevice } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
@@ -18,33 +20,6 @@ import { Trophy, ArrowRight, CheckCircle2, AlertCircle, Info, Medal, Crown, Tren
 import { AchievementStatus, UserAchievementProgress } from './types';
 import { getLevelInfo } from './constants';
 
-const ToastNotification = () => {
-    const { toast } = useApp();
-    if (!toast) return null;
-
-    const styles = {
-        success: 'bg-green-600 border-green-400 text-white',
-        error: 'bg-red-600 border-red-400 text-white',
-        info: 'bg-steam-light border-steam-highlight text-white',
-    };
-
-    const icons = {
-        success: <CheckCircle2 className="w-5 h-5" />,
-        error: <AlertCircle className="w-5 h-5" />,
-        info: <Info className="w-5 h-5" />,
-    };
-
-    return (
-        <div 
-            onClick={toast.onClick}
-            className={`fixed bottom-6 right-6 z-[60] flex items-center gap-3 px-4 py-3 rounded shadow-2xl border ${styles[toast.type]} animate-bounce-in transition-all duration-300 ${toast.onClick ? 'cursor-pointer hover:scale-105 active:scale-95' : ''}`}
-        >
-            {icons[toast.type]}
-            <span className="font-bold text-sm">{toast.message}</span>
-        </div>
-    );
-};
-
 const GameGrid = ({ title, games, onSelectGame }: { title: string, games: any[], onSelectGame: (id: string) => void }) => {
     return (
         <div className="p-8 md:p-12 animate-fade-in">
@@ -59,7 +34,7 @@ const GameGrid = ({ title, games, onSelectGame }: { title: string, games: any[],
                         <div key={game.id} onClick={() => onSelectGame(game.id)} className="cursor-pointer group relative">
                             <div className="relative overflow-hidden rounded-xl shadow-2xl aspect-[2/3] border border-transparent group-hover:border-steam-highlight/50 transition-all">
                                 <img 
-                                  src={game.coverUrl} 
+                                  src={game.coverUrl || undefined} 
                                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                                   style={{ objectPosition: game.coverPosition || 'center' }}
                                 />
@@ -616,7 +591,6 @@ const AppContent: React.FC = () => {
             <p className="text-[9px] text-gray-700 font-bold uppercase tracking-[0.3em]">© 2026 Master Achievement Hub • v2.6.0</p>
           </div>
         </div>
-        <ToastNotification />
       </div>
     );
   }
@@ -663,8 +637,17 @@ const AppContent: React.FC = () => {
       <main className="flex-1 h-full flex flex-col relative overflow-hidden bg-steam-base">
         <Header onNavigateProfile={() => navigateToProfile()} />
         <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-            {view === 'home' && (
-            <div className="p-8 md:p-12 min-h-full bg-gradient-to-br from-steam-base to-steam-dark">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={view + (selectedGameId || '') + (selectedUserId || '')}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="min-h-full"
+            >
+              {view === 'home' && (
+              <div className="p-8 md:p-12 min-h-full bg-gradient-to-br from-steam-base to-steam-dark">
                 <div className="max-w-7xl mx-auto">
                     <header className="mb-12">
                         <h1 className="text-5xl font-black text-white mb-2 tracking-tighter italic">Catálogo de Desafios</h1>
@@ -713,7 +696,7 @@ const AppContent: React.FC = () => {
                                               'bg-gradient-to-b from-orange-600/10 to-steam-dark border-orange-600/30'}
                                         `}>
                                             <div className="absolute top-4 left-4 font-black text-2xl italic opacity-20 group-hover:opacity-40 transition-opacity">#{idx + 1}</div>
-                                            <img src={player.avatar} className="w-20 h-20 rounded-xl mb-4 border-2 border-transparent object-cover group-hover:border-steam-highlight transition-colors" alt={player.name} />
+                                            <img src={player.avatar || undefined} className="w-20 h-20 rounded-xl mb-4 border-2 border-transparent object-cover group-hover:border-steam-highlight transition-colors" alt={player.name} />
                                             <div className="font-black text-white text-lg truncate w-full mb-1 group-hover:text-steam-highlight transition-colors">{player.name}</div>
                                             <div className={`text-[10px] font-bold uppercase mb-4 ${player.levelInfo.color}`}>{player.levelInfo.title}</div>
                                         </div>
@@ -738,8 +721,10 @@ const AppContent: React.FC = () => {
             {view === 'events' && <EventsView />}
             {view === 'communities' && <CommunitiesView />}
             {view === 'ads' && <AdsView onBack={() => setView('store')} />}
+          </motion.div>
+        </AnimatePresence>
         </div>
-        <ToastNotification />
+        <Toaster position="bottom-right" theme="dark" richColors />
 
         {activeNotification && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-4 animate-fade-in">
@@ -757,7 +742,7 @@ const AppContent: React.FC = () => {
               </div>
 
               {activeNotification.imageUrl && (
-                <img src={activeNotification.imageUrl} className="w-full h-48 object-cover rounded-2xl mb-6 border border-transparent" alt="Notification" />
+                <img src={activeNotification.imageUrl || undefined} className="w-full h-48 object-cover rounded-2xl mb-6 border border-transparent" alt="Notification" />
               )}
 
               <h4 className="text-xl font-black text-white mb-4">{activeNotification.title}</h4>

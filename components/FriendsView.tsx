@@ -125,7 +125,7 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onNavigateProfile, onO
                     <div className="flex items-end justify-between mb-4">
                       <div className="relative cursor-pointer" onClick={() => setSelectedFriendForOptions(friend)}>
                         <img 
-                          src={friend.avatar} 
+                          src={friend.avatar || undefined} 
                           className={`w-24 h-24 rounded-3xl border-4 border-steam-dark object-cover shadow-2xl transition-transform group-hover:scale-105 ${friend.isVip ? 'ring-2 ring-yellow-500/50' : ''}`} 
                           alt={friend.name} 
                         />
@@ -198,7 +198,7 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onNavigateProfile, onO
                   if (!sender) return null;
                   return (
                     <div key={req.id} className="bg-steam-dark p-6 rounded-3xl border border-transparent flex items-center gap-6 group hover:border-steam-highlight/30 transition-all">
-                      <img src={sender.avatar} className="w-16 h-16 rounded-2xl object-cover border border-transparent" alt={sender.name} />
+                      <img src={sender.avatar || undefined} className="w-16 h-16 rounded-2xl object-cover border border-transparent" alt={sender.name} />
                       <div className="flex-1">
                         <h4 className="text-white font-black uppercase text-sm">{sender.name}</h4>
                         <p className="text-[8px] text-gray-500 uppercase font-black tracking-widest mt-1">Enviado em {new Date(req.timestamp).toLocaleDateString()}</p>
@@ -239,7 +239,7 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onNavigateProfile, onO
                   if (!receiver) return null;
                   return (
                     <div key={req.id} className="bg-steam-dark p-6 rounded-3xl border border-transparent flex items-center gap-6 opacity-60">
-                      <img src={receiver.avatar} className="w-16 h-16 rounded-2xl object-cover border border-transparent grayscale" alt={receiver.name} />
+                      <img src={receiver.avatar || undefined} className="w-16 h-16 rounded-2xl object-cover border border-transparent grayscale" alt={receiver.name} />
                       <div className="flex-1">
                         <h4 className="text-white font-black uppercase text-sm">{receiver.name}</h4>
                         <p className="text-[8px] text-gray-500 uppercase font-black tracking-widest mt-1">Aguardando resposta...</p>
@@ -290,7 +290,7 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onNavigateProfile, onO
                     return (
                         <div key={user.id} className="bg-steam-dark p-6 rounded-[32px] border border-transparent hover:border-steam-highlight/50 transition-all flex flex-col items-center text-center group shadow-xl">
                             <div className="relative mb-4 cursor-pointer" onClick={() => onNavigateProfile(user.id)}>
-                                <img src={user.avatar} className="w-20 h-20 rounded-full border-4 border-steam-base object-cover shadow-2xl group-hover:scale-110 transition-transform" />
+                                <img src={user.avatar || undefined} className="w-20 h-20 rounded-full border-4 border-steam-base object-cover shadow-2xl group-hover:scale-110 transition-transform" />
                                 {user.isVip && <Gem className="absolute -top-1 -right-1 w-6 h-6 text-yellow-500 drop-shadow-lg" />}
                             </div>
                             <h3 
@@ -343,7 +343,7 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onNavigateProfile, onO
                 </button>
                 
                 <div className="flex flex-col items-center mb-4">
-                    <img src={selectedFriendForOptions.avatar} className="w-24 h-24 rounded-full border-4 border-steam-highlight object-cover shadow-2xl mb-4" />
+                    <img src={selectedFriendForOptions.avatar || undefined} className="w-24 h-24 rounded-full border-4 border-steam-highlight object-cover shadow-2xl mb-4" />
                     <h2 className="text-2xl font-black text-white uppercase tracking-tighter">{selectedFriendForOptions.name}</h2>
                     <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em]">O que deseja fazer?</p>
                 </div>

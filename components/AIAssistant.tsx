@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Loader2, Bot, Sparkles, MessageSquare } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 import { Game } from '../types';
 
 interface AIAssistantProps {
@@ -33,31 +32,27 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ game, onClose }) => {
     setIsTyping(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const model = "gemini-3-flash-preview";
-      
-      const systemInstruction = `Você é um assistente especialista em videogames, focado especificamente no jogo "${game.title}". 
-      Sua missão é ajudar o jogador com dicas, estratégias, localização de itens e guias de conquistas.
-      Seja amigável, use termos de gamer e mantenha as respostas concisas e úteis.
-      Se o jogador perguntar algo fora do contexto de "${game.title}", tente gentilmente trazer o assunto de volta para o jogo ou diga que seu conhecimento é focado neste título.`;
-
-      const response = await ai.models.generateContent({
-        model,
-        contents: messages.map(m => ({
-          role: m.role === 'user' ? 'user' : 'model',
-          parts: [{ text: m.text }]
-        })).concat([{ role: 'user', parts: [{ text: userText }] }]),
-        config: {
-          systemInstruction,
-          temperature: 0.7,
-        }
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messages: messages.concat([{ role: 'user', text: userText }]),
+          gameTitle: game.title
+        })
       });
 
-      const aiText = response.text || "Desculpe, tive um problema ao processar sua resposta. Pode tentar novamente?";
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const aiText = data.text || "Desculpe, tive um problema ao processar sua resposta. Pode tentar novamente?";
       setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
     } catch (err) {
       console.error("AI Error:", err);
-      setMessages(prev => [...prev, { role: 'ai', text: "Ocorreu um erro na minha conexão neural. Verifique sua chave de API ou tente mais tarde." }]);
+      setMessages(prev => [...prev, { role: 'ai', text: "Ocorreu um erro na conexão com o assistente AI. Tente novamente mais tarde." }]);
     } finally {
       setIsTyping(false);
     }

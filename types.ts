@@ -239,12 +239,67 @@ export interface UserGoal {
   createdAt: string;
 }
 
-export type ContentType = 'video' | 'image' | 'text' | 'tip' | 'list' | 'alert';
+export type ContentType = 'video' | 'image' | 'text' | 'tip' | 'list' | 'alert' | 'button' | 'interactive-image' | 'interactive-map';
+
+export interface MapHotspot {
+  id: string;
+  x: number; // 0-1 relative to image width
+  y: number; // 0-1 relative to image height
+  name: string;
+  label?: string; // Alias for name
+  action: 'open_page' | 'create_page';
+  targetPageId?: string;
+  icon?: string;
+  iconType?: 'lucide' | 'image';
+  size?: number;
+}
+
+export interface ButtonConfig {
+  id: string;
+  text: string;
+  icon?: string;
+  iconType?: 'lucide' | 'image';
+  action: 'create_page' | 'open_page';
+  targetPageId?: string;
+  size: 'S' | 'M' | 'L';
+  bgColor: string;
+  textColor: string;
+  fontStyle: 'normal' | 'bold' | 'uppercase';
+  alignment: 'left' | 'center' | 'right';
+  width: 'auto' | '100%';
+  noBackground?: boolean;
+  iconSize?: number;
+}
+
+export interface Hotspot {
+  id: string;
+  x: number; // percentage 0-100
+  y: number; // percentage 0-100
+  name: string;
+  label?: string; // Alias for name
+  action: 'open_page' | 'create_page';
+  targetPageId?: string;
+  iconType?: 'lucide' | 'image';
+  icon?: string;
+  size?: number;
+}
+
+export interface SubPage {
+  id: string;
+  gameId: string;
+  title: string;
+  category?: string;
+  order: number;
+  parentContentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Content {
   id: string;
   gameId: string;
   achievementId?: string;
+  subPageId?: string; // Se este bloco pertence a uma sub-página
   category: string;
   title: string;
   type: ContentType;
@@ -255,6 +310,12 @@ export interface Content {
   width?: '25%' | '33%' | '50%' | '66%' | '75%' | '100%';
   alignment?: 'left' | 'right' | 'center' | 'top' | 'bottom';
   updatedAt?: string;
+  buttons?: ButtonConfig[];
+  hotspots?: Hotspot[];
+  mapHotspots?: MapHotspot[];
+  zoom?: number; // Para imagem interativa
+  mapBaseUrl?: string;
+  mapMaxZoom?: number;
 }
 
 export interface Game {
@@ -281,6 +342,7 @@ export interface GameContextType {
   games: Game[];
   achievements: Achievement[];
   contents: Content[];
+  subPages: SubPage[];
   users: User[];
   wallpapers: ProfileWallpaper[];
   storeItems: StoreItem[];
@@ -292,7 +354,6 @@ export interface GameContextType {
   validationLogs: ValidationLog[];
   userGoals: UserGoal[];
   feedbacks: Feedback[];
-  toast: ToastMessage | null;
   rewardSettings: RewardRoomSettings;
   systemSettings: SystemSettings;
   messages: Message[];
@@ -360,6 +421,10 @@ export interface GameContextType {
   addContent: (content: Content) => void;
   updateContent: (content: Content) => void;
   deleteContent: (contentId: string) => void;
+
+  addSubPage: (subPage: SubPage) => Promise<void>;
+  updateSubPage: (subPage: SubPage) => Promise<void>;
+  deleteSubPage: (subPageId: string) => Promise<void>;
 
   addWallpaper: (wp: ProfileWallpaper) => void;
   deleteWallpaper: (id: string) => void;

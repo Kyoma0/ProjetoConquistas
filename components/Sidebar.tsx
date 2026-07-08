@@ -200,7 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ${selectedGameId === game.id ? 'bg-steam-light border-steam-highlight text-white' : 'border-transparent text-steam-accent hover:bg-steam-light/20 hover:text-white'}
             `}
           >
-            <img src={game.coverUrl} alt={game.title} className="w-6 h-8 object-cover rounded shadow-sm opacity-80 group-hover:opacity-100" />
+            <img src={game.coverUrl || undefined} alt={game.title} className="w-6 h-8 object-cover rounded shadow-sm opacity-80 group-hover:opacity-100" />
             <div className="flex-1 truncate">
               <span className={`block truncate ${selectedGameId === game.id ? 'font-bold' : 'font-medium'}`}>
                 {game.title}
@@ -239,7 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg group transition-all cursor-pointer"
                 >
                     <div className="relative">
-                        <img src={friend.avatar} className="w-8 h-8 rounded-full object-cover border border-transparent group-hover:border-steam-highlight" alt={friend.name} />
+                        <img src={friend.avatar || undefined} className="w-8 h-8 rounded-full object-cover border border-transparent group-hover:border-steam-highlight" alt={friend.name} />
                         <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-steam-green rounded-full border-2 border-steam-dark shadow-lg animate-pulse-fast"></div>
                     </div>
                     <div className="flex-1 min-w-0">

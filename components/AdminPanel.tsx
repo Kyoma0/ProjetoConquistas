@@ -25,7 +25,7 @@ export const RenderAchIcon = ({ icon, className = "w-12 h-12" }: { icon: string,
   return (
     <div className={`${className} flex items-center justify-center bg-black/40 rounded border border-transparent shadow-inner overflow-hidden shrink-0`}>
       {isImage ? (
-        <img src={icon} className="w-full h-full object-cover" alt="Icon" />
+        <img src={icon || undefined} className="w-full h-full object-cover" alt="Icon" />
       ) : (
         <span className="text-2xl">{icon || '🏆'}</span>
       )}
@@ -666,7 +666,7 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
                                 {users.slice(0, 4).map(u => (
                                     <div key={u.id} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-transparent group">
                                         <div className="flex items-center gap-3">
-                                            <img src={u.avatar} className="w-8 h-8 rounded-lg border border-transparent" />
+                                            <img src={u.avatar || undefined} className="w-8 h-8 rounded-lg border border-transparent" />
                                             <div className="text-[10px] font-black text-gray-300 group-hover:text-white transition-colors uppercase truncate max-w-[80px]">{u.name}</div>
                                         </div>
                                         <span className="text-[10px] font-black text-steam-green">R$ {u.balance.toFixed(2)}</span>
@@ -719,7 +719,7 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
                               <div className="relative aspect-video overflow-hidden bg-black shadow-inner">
                                  {item.image && (item.image.endsWith('.mp4') || item.image.endsWith('.webm') || item.image.startsWith('data:video')) ? (
                                     <video 
-                                      src={item.image} 
+                                      src={item.image || undefined} 
                                       className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" 
                                       muted 
                                       loop 
@@ -821,7 +821,7 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
                         {events.map(ev => (
                            <div key={ev.id} className="bg-steam-dark rounded-3xl border border-transparent overflow-hidden group hover:border-steam-highlight/30 transition-all shadow-2xl flex flex-col relative">
                               <div className="relative aspect-[21/9] overflow-hidden bg-black shadow-inner">
-                                 <img src={ev.banner} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" alt={ev.title} />
+                                 <img src={ev.banner || undefined} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" alt={ev.title} />
                                  <div className="absolute top-4 left-4 flex gap-2">
                                     <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest backdrop-blur-md border ${ev.isActive ? 'bg-steam-green/20 text-steam-green border-transparent' : 'bg-red-500/20 text-red-500 border-transparent'}`}>
                                        {ev.isActive ? 'Em Produção' : 'Engavetado'}
@@ -902,7 +902,7 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
                             
                             return (
                                 <div key={fb.id} className="bg-steam-dark p-6 rounded-xl border border-transparent flex gap-6 hover:border-steam-highlight/30 transition-all group relative">
-                                    <img src={fb.userAvatar} className="w-12 h-12 rounded-lg border border-transparent shrink-0 cursor-pointer" alt={fb.userName} onClick={() => onViewUserProfile(fb.userId)} />
+                                    <img src={fb.userAvatar || undefined} className="w-12 h-12 rounded-lg border border-transparent shrink-0 cursor-pointer" alt={fb.userName} onClick={() => onViewUserProfile(fb.userId)} />
                                     <div className="flex-1">
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
@@ -1210,7 +1210,7 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
                     {games.map(game => (
                         <div key={game.id} className="bg-steam-dark p-5 rounded-xl border border-transparent flex items-center gap-6 hover:border-steam-highlight/30 transition-all group shadow-md">
                             <img 
-                              src={game.coverUrl} 
+                              src={game.coverUrl || undefined} 
                               className="w-12 h-16 object-cover rounded border border-transparent" 
                               style={{ objectPosition: game.coverPosition || 'center' }}
                             />
@@ -1291,7 +1291,7 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
                     {users.map(u => (
                         <div key={u.id} className="bg-steam-dark p-4 rounded-xl border border-transparent flex items-center gap-4 group shadow-md">
                             <div className="flex items-center gap-4 flex-1 cursor-pointer group/info" onClick={() => onViewUserProfile(u.id)}>
-                                <img src={u.avatar} className="w-10 h-10 rounded border border-transparent object-cover group-hover/info:border-steam-highlight transition-all" />
+                                <img src={u.avatar || undefined} className="w-10 h-10 rounded border border-transparent object-cover group-hover/info:border-steam-highlight transition-all" />
                                 <div className="flex-1">
                                     <div className="font-bold text-white uppercase text-xs flex items-center gap-2 group-hover/info:text-steam-highlight transition-colors">
                                         {u.name} 
@@ -1649,7 +1649,7 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
                         <div className="w-full aspect-video rounded-lg overflow-hidden border border-transparent bg-black">
                            {editingStoreItem.image.endsWith('.mp4') || editingStoreItem.image.endsWith('.webm') || editingStoreItem.image.startsWith('data:video') ? (
                               <video 
-                                src={editingStoreItem.image} 
+                                src={editingStoreItem.image || undefined} 
                                 className="w-full h-full object-cover" 
                                 muted 
                                 autoPlay 
@@ -1663,7 +1663,7 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
                                 }}
                               />
                            ) : (
-                              <img src={editingStoreItem.image} className="w-full h-full object-cover" alt="Preview" onError={(e) => (e.currentTarget.src = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop")} />
+                              <img src={editingStoreItem.image || undefined} className="w-full h-full object-cover" alt="Preview" onError={(e) => (e.currentTarget.src = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop")} />
                            )}
                         </div>
                      </div>
