@@ -454,9 +454,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const socket = new WebSocket(`${protocol}//${window.location.host}`);
 
-    socket.onopen = () => {
+    socket.onopen = async () => {
       console.log('WS Connected');
-      socket.send(JSON.stringify({ type: 'IDENTIFY', userId: currentUser.id }));
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          socket.send(JSON.stringify({ type: 'IDENTIFY', userId: currentUser.id, token }));
+        } else {
+          socket.send(JSON.stringify({ type: 'IDENTIFY', userId: currentUser.id }));
+        }
+      } catch (err) {
+        console.error("Erro ao obter idToken do usuário para identificação do WS:", err);
+        socket.send(JSON.stringify({ type: 'IDENTIFY', userId: currentUser.id }));
+      }
     };
 
     socket.onmessage = (event) => {

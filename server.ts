@@ -8,12 +8,91 @@ import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
 import fs from 'fs';
 import sharp from 'sharp';
+import dns from 'dns';
+import { promisify } from 'util';
+import admin from 'firebase-admin';
+import { getAuth } from 'firebase-admin/auth';
 import { sendConfirmationEmail, sendPasswordResetEmail } from './services/emailService';
 import { ADMIN_EMAIL } from './constants';
 import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Initialize Firebase Admin SDK
+try {
+  const firebaseConfigPath = path.join(__dirname, 'firebase-applet-config.json');
+  if (fs.existsSync(firebaseConfigPath)) {
+    const config = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf8'));
+    admin.initializeApp({
+      projectId: config.projectId,
+    });
+    console.log('Firebase Admin SDK inicializado com sucesso.');
+  } else {
+    admin.initializeApp();
+    console.log('Firebase Admin SDK inicializado com os padrões.');
+  }
+} catch (error) {
+  console.error('Erro ao inicializar o Firebase Admin SDK:', error);
+}
+
+const lookupPromise = promisify(dns.lookup);
+
+function isIpPrivateOrReserved(ip: string): boolean {
+  // IPv4 checks
+  if (/^(127\.|10\.|169\.254\.)/.test(ip)) return true;
+  
+  if (ip.startsWith('172.')) {
+    const parts = ip.split('.').map(Number);
+    if (parts.length >= 2 && parts[1] >= 16 && parts[1] <= 31) {
+      return true;
+    }
+  }
+  
+  if (ip.startsWith('192.168.')) return true;
+  
+  // IPv6 checks
+  if (ip === '::1' || ip.startsWith('fe80:') || ip.startsWith('fc00:') || ip.startsWith('fd00:')) {
+    return true;
+  }
+  
+  return false;
+}
+
+async function validateUrlForSsrf(urlStr: string): Promise<boolean> {
+  try {
+    const parsed = new URL(urlStr);
+    
+    // Aceitar apenas http e https
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    
+    const hostname = parsed.hostname;
+    
+    // Verificar se o hostname é um IP
+    const isIp = /^[0-9a-f.:]+$/i.test(hostname);
+    if (isIp) {
+      return !isIpPrivateOrReserved(hostname);
+    }
+    
+    // Resolver hostname para obter o IP de destino real
+    try {
+      const lookupResult = await lookupPromise(hostname);
+      const ip = lookupResult.address;
+      if (isIpPrivateOrReserved(ip)) {
+        return false;
+      }
+    } catch {
+      // Se falhar a resolução de DNS, rejeitamos por segurança
+      return false;
+    }
+    
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function startServer() {
   const app = express();
@@ -47,13 +126,27 @@ async function startServer() {
   wss.on('connection', (ws: WebSocket) => {
     let currentUserId: string | null = null;
 
-    ws.on('message', (message: string) => {
+    ws.on('message', async (message: string) => {
       try {
         const data = JSON.parse(message);
         
         if (data.type === 'IDENTIFY') {
-          currentUserId = data.userId;
-          if (currentUserId) {
+          const { userId, token } = data;
+          if (!token) {
+            console.error('WS Connection rejected: No auth token provided.');
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Token de autenticação obrigatório.' }));
+            ws.close();
+            return;
+          }
+          try {
+            const decodedToken = await getAuth().verifyIdToken(token);
+            if (decodedToken.uid !== userId) {
+              console.error(`WS Connection rejected: Token UID (${decodedToken.uid}) does not match claimed userId (${userId})`);
+              ws.send(JSON.stringify({ type: 'ERROR', message: 'ID do usuário não correspondente.' }));
+              ws.close();
+              return;
+            }
+            currentUserId = userId;
             chatClients.set(currentUserId, ws);
             // Broadcast user online
             const onlinePayload = JSON.stringify({ type: 'USER_ONLINE', userId: currentUserId });
@@ -65,6 +158,11 @@ async function startServer() {
             // Send current online users to the new client
             const onlineUsers = Array.from(chatClients.keys());
             ws.send(JSON.stringify({ type: 'ONLINE_USERS_LIST', users: onlineUsers }));
+          } catch (err) {
+            console.error('WS Connection rejected: Token inválido.', err);
+            ws.send(JSON.stringify({ type: 'ERROR', message: 'Token de autenticação inválido.' }));
+            ws.close();
+            return;
           }
         }
 
@@ -135,9 +233,30 @@ async function startServer() {
     res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV });
   });
 
-  app.use(cors());
-  app.use(express.json({ limit: '1024mb' }));
-  app.use(express.urlencoded({ limit: '1024mb', extended: true }));
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : [];
+
+  const corsOptions = {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+      
+      const isLocalhost = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
+      const isCloudRunPreview = origin.endsWith('.run.app') || origin.endsWith('.google.com');
+      
+      if (isLocalhost || isCloudRunPreview || allowedOrigins.includes(origin) || allowedOrigins.length === 0) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS barrado para origem: ${origin}`);
+        callback(new Error('Não permitido pelas regras de CORS'));
+      }
+    },
+    credentials: true
+  };
+
+  app.use(cors(corsOptions));
+  app.use(express.json({ limit: '5mb' }));
+  app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
   // --- GEMINI PROXY CHAT ENDPOINT ---
   app.post('/api/chat', async (req, res) => {
@@ -426,6 +545,13 @@ async function startServer() {
           return res.status(404).json({ error: 'Local image file not found', path: imageUrl });
         }
       } else {
+        // Validate external URL to prevent SSRF
+        const isSafe = await validateUrlForSsrf(imageUrl);
+        if (!isSafe) {
+          console.error(`Blocked SSRF attempt or invalid URL: ${imageUrl}`);
+          return res.status(400).json({ error: 'URL inválida ou proibida por questões de segurança (SSRF).' });
+        }
+
         const response = await fetch(imageUrl);
         if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
         const arrayBuffer = await response.arrayBuffer();
