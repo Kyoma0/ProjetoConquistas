@@ -29,6 +29,7 @@ import {
   SortableContext, 
   sortableKeyboardCoordinates, 
   verticalListSortingStrategy, 
+  horizontalListSortingStrategy,
   useSortable 
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -79,6 +80,7 @@ const SortableSubPageItem: React.FC<{
   onDelete: (id: string) => void;
   onRename: (id: string, newTitle: string) => void;
 }> = ({ sp, isActive, isEditMode, onClick, onDelete, onRename }) => {
+  const { showConfirm } = useApp();
   const {
     attributes,
     listeners,
@@ -99,46 +101,45 @@ const SortableSubPageItem: React.FC<{
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative flex items-center gap-1 ${isEditMode ? 'pr-1' : ''}`}
+      className={`group relative flex items-center gap-1.5 bg-[#10141d]/60 border rounded-xl px-3 py-2 transition-all ${isActive ? 'bg-[#1b2838]/60 border-steam-highlight/30 text-steam-highlight shadow-lg' : 'text-gray-400 border-white/5 hover:border-white/10 hover:text-white'}`}
     >
       {isEditMode && (
         <button
           {...attributes}
           {...listeners}
-          className="p-1.5 text-gray-600 hover:text-steam-highlight cursor-grab active:cursor-grabbing shrink-0"
+          className="p-1 text-gray-600 hover:text-steam-highlight cursor-grab active:cursor-grabbing shrink-0"
         >
-          <GripVertical className="w-3 h-3" />
+          <GripVertical className="w-3.5 h-3.5" />
         </button>
       )}
       
       <button 
         onClick={onClick}
-        className={`flex-1 text-left px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-between min-w-0 ${isActive ? 'bg-white/10 text-steam-highlight' : 'text-gray-500 hover:bg-white/5 hover:text-white'}`}
+        className="text-[10px] font-black uppercase tracking-widest transition-all text-left min-w-0 pr-1"
       >
         <span className="truncate">{sp.title}</span>
-        {!isEditMode && <ChevronRight className={`w-3 h-3 transition-transform ${isActive ? 'translate-x-0' : '-translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100'}`} />}
       </button>
 
       {isEditMode && (
-        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1">
           <button 
             onClick={(e) => {
               e.stopPropagation();
               const newTitle = prompt('Novo título:', sp.title);
               if (newTitle) onRename(sp.id, newTitle);
             }}
-            className="p-1.5 text-gray-500 hover:text-steam-highlight"
+            className="p-1 text-gray-500 hover:text-steam-highlight"
           >
             <Edit3 className="w-3 h-3" />
           </button>
           <button 
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm('Tem certeza que deseja excluir esta página e todo o seu conteúdo?')) {
+              showConfirm('Tem certeza que deseja excluir esta página e todo o seu conteúdo?', () => {
                 onDelete(sp.id);
-              }
+              });
             }}
-            className="p-1.5 text-gray-500 hover:text-red-500"
+            className="p-1 text-gray-500 hover:text-red-500"
           >
             <Trash2 className="w-3 h-3" />
           </button>
@@ -848,6 +849,7 @@ const BuilderBlock: React.FC<{
                       icon: 'Target'
                     };
                     onUpdate({ ...content, mapHotspots: [...(content.mapHotspots || []), newHotspot] });
+                    setEditingHotspot(newHotspot);
                   }}
                   onEditHotspot={(hs) => {
                     setEditingHotspot(hs);
@@ -1060,7 +1062,7 @@ const BuilderBlock: React.FC<{
                 <label className="text-[10px] text-gray-500 font-black uppercase mb-2 block tracking-widest">
                   {editingHotspot.iconType === 'image' ? 'URL da Imagem' : 'Nome do Ícone (Lucide)'}
                 </label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-3">
                   <input 
                     className="flex-1 bg-black/40 border border-transparent rounded-xl p-4 text-white font-bold outline-none focus:border-steam-highlight" 
                     value={editingHotspot.icon || ''} 
@@ -1092,6 +1094,24 @@ const BuilderBlock: React.FC<{
                     </button>
                   )}
                 </div>
+
+                {editingHotspot.iconType === 'lucide' && (
+                  <div className="p-3 bg-black/20 rounded-xl border border-white/5">
+                    <label className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-2 block">Símbolos Recomendados</label>
+                    <div className="grid grid-cols-4 gap-2 max-h-36 overflow-y-auto pr-1">
+                      {['Target', 'Map', 'Flag', 'Info', 'Camera', 'Trophy', 'Sword', 'Star', 'Skull', 'Heart', 'Shield', 'Crown', 'Key', 'Gem', 'Book'].map((icName) => (
+                        <button
+                          key={icName}
+                          type="button"
+                          onClick={() => setEditingHotspot({ ...editingHotspot, icon: icName })}
+                          className={`p-2 rounded-lg text-xs font-bold transition-all border flex flex-col items-center gap-1 ${editingHotspot.icon?.toLowerCase() === icName.toLowerCase() ? 'bg-steam-highlight/20 text-steam-highlight border-steam-highlight/50' : 'bg-white/5 text-gray-400 border-transparent hover:bg-white/10'}`}
+                        >
+                          <span className="text-[10px]">{icName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1906,9 +1926,9 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-8 md:px-12 mt-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <div className={`max-w-7xl mx-auto px-8 md:px-12 mt-12 ${activeTab === 'wiki' ? 'flex flex-col gap-12' : 'grid grid-cols-1 lg:grid-cols-3 gap-12'}`}>
          {/* Left: Content Area */}
-         <div className="lg:col-span-2 space-y-8">
+         <div className={`${activeTab === 'wiki' ? 'w-full max-w-5xl mx-auto space-y-8' : 'lg:col-span-2 space-y-8'}`}>
             <div className="flex flex-col gap-6 mb-8 border-b border-transparent pb-6">
                <div className="flex items-center justify-between">
                   <div className="flex gap-8">
@@ -2159,32 +2179,53 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
               </div>
             </div>
             ) : (activeTab === 'wiki' || activeTab === 'extras') ? (
-               <div className="animate-fade-in flex flex-col md:flex-row gap-8">
-                 {/* Sidebar da Wiki */}
+               <div className="animate-fade-in flex flex-col gap-8 w-full">
+                 {/* Navegação Wiki */}
                  {(activeTab as string) === 'wiki' && (
-                   <div className="w-full md:w-72 shrink-0 space-y-6">
-                   <div className="bg-black/20 rounded-2xl border border-white/5 p-4">
-                     <div className="flex items-center gap-2 mb-4 px-2">
-                       <BookOpen className="w-4 h-4 text-steam-highlight" />
-                       <span className="text-[10px] font-black text-white uppercase tracking-widest">Navegação Wiki</span>
+                   <div className="w-full space-y-4">
+                     <div className="bg-black/20 rounded-2xl border border-white/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                       <div className="flex items-center gap-2">
+                         <BookOpen className="w-4 h-4 text-steam-highlight" />
+                         <span className="text-[10px] font-black text-white uppercase tracking-widest">Navegação Wiki</span>
+                       </div>
+                       
+                       {editMode && currentUser?.isAdmin && (
+                         <button 
+                           onClick={() => {
+                             const newId = `sp_${Date.now()}`;
+                             addSubPage({
+                               id: newId,
+                               gameId: game.id,
+                               title: 'Nova Página',
+                               order: subPages.filter(sp => sp.gameId === game.id).length,
+                               createdAt: new Date().toISOString(),
+                               updatedAt: new Date().toISOString()
+                             });
+                             setCurrentSubPageId(newId);
+                           }}
+                           className="px-4 py-2 bg-white/5 border border-dashed border-white/20 rounded-xl text-[10px] font-black text-gray-400 uppercase tracking-widest hover:border-steam-highlight hover:text-steam-highlight transition-all flex items-center justify-center gap-1.5"
+                         >
+                           <Plus className="w-3.5 h-3.5" /> Criar Nova Página
+                         </button>
+                       )}
                      </div>
-                     
-                     <div className="space-y-1 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
+
+                     <div className="bg-black/10 rounded-2xl border border-white/5 p-3 flex flex-wrap items-center gap-2">
                        <button 
                          onClick={() => setCurrentSubPageId(null)}
-                         className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!currentSubPageId ? 'bg-steam-highlight text-steam-dark' : 'text-gray-500 hover:bg-white/5 hover:text-white'}`}
+                         className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!currentSubPageId ? 'bg-steam-highlight text-steam-dark shadow-lg' : 'text-gray-400 bg-white/5 border border-transparent hover:bg-white/10 hover:text-white'}`}
                        >
                          WIKI PRINCIPAL
                        </button>
                        
-                       <div className="h-px bg-white/5 my-4" />
+                       <div className="w-px h-6 bg-white/10 hidden sm:block mx-1" />
 
                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                          <SortableContext 
                            items={subPages.filter(sp => sp.gameId === game.id).sort((a, b) => (a.order || 0) - (b.order || 0)).map(sp => sp.id)} 
-                           strategy={verticalListSortingStrategy}
+                           strategy={horizontalListSortingStrategy}
                          >
-                           <div className="space-y-1">
+                           <div className="flex flex-wrap gap-2">
                              {subPages
                                .filter(sp => sp.gameId === game.id)
                                .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -2207,31 +2248,9 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
                            </div>
                          </SortableContext>
                        </DndContext>
-
                      </div>
                    </div>
-
-                   {editMode && currentUser?.isAdmin && (
-                     <button 
-                       onClick={() => {
-                         const newId = `sp_${Date.now()}`;
-                         addSubPage({
-                           id: newId,
-                           gameId: game.id,
-                           title: 'Nova Página',
-                           order: subPages.filter(sp => sp.gameId === game.id).length,
-                           createdAt: new Date().toISOString(),
-                           updatedAt: new Date().toISOString()
-                         });
-                         setCurrentSubPageId(newId);
-                       }}
-                       className="w-full py-3 bg-white/5 border border-dashed border-white/20 rounded-xl text-[10px] font-black text-gray-500 uppercase tracking-widest hover:border-steam-highlight hover:text-steam-highlight transition-all flex items-center justify-center gap-2"
-                     >
-                       <Plus className="w-4 h-4" /> Criar Nova Página
-                     </button>
-                   )}
-                 </div>
-               )}
+                 )}
 
                  <div className="flex-1 space-y-12">
                    {currentSubPageId ? (
@@ -2280,7 +2299,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-x-4 items-start">
+                      <div className="flex flex-col gap-y-6 items-center w-full">
                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                           <SortableContext items={subPageBlocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
                             {subPageBlocks.map((block, idx) => (
@@ -2335,7 +2354,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
                       )}
                     </div>
                   ) : (activeTab as string) === 'wiki' ? (
-                    <div className="animate-fade-in flex flex-wrap gap-x-4 items-start">
+                    <div className="animate-fade-in flex flex-col gap-y-6 items-center w-full">
                       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                         <SortableContext items={wikiBlocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
                           {wikiBlocks.map((block, idx) => (
@@ -2389,7 +2408,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
                       )}
                     </div>
                    ) : (
-                <div className="animate-fade-in flex flex-wrap gap-x-4 items-start">
+                <div className="animate-fade-in flex flex-col gap-y-6 items-center w-full">
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={extrasBlocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
                       {extrasBlocks.map((block, idx) => (

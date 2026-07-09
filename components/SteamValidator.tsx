@@ -12,6 +12,8 @@ interface SteamValidatorProps {
 export const SteamValidator: React.FC<SteamValidatorProps> = ({ gameId, onClose }) => {
   const { syncSteamAchievements, getSteamAuthUrl, achievements, games, updateProgress, userProgress, showToast, currentUser, updateUser } = useApp();
   const [steamId, setSteamId] = useState('');
+  const [manualSteamId, setManualSteamId] = useState('');
+  const [showManualInput, setShowManualInput] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResults, setSyncResults] = useState<any[]>([]);
   const [unmatchedSteamAchievements, setUnmatchedSteamAchievements] = useState<any[]>([]);
@@ -91,6 +93,29 @@ export const SteamValidator: React.FC<SteamValidatorProps> = ({ gameId, onClose 
       setError("Falha ao iniciar autenticação Steam.");
       setIsSyncing(false);
     }
+  };
+
+  const handleManualLink = async (customId?: string) => {
+    const idToLink = (customId || manualSteamId).trim();
+    if (!idToLink) return;
+
+    if (!/^\d{17}$/.test(idToLink)) {
+      setError("O SteamID64 deve ser um número de exatamente 17 dígitos (ex: 76561198000000000).");
+      return;
+    }
+
+    setError(null);
+    setSteamId(idToLink);
+
+    if (currentUser) {
+      try {
+        await updateUser(currentUser.id, { steamId: idToLink });
+      } catch (err) {
+        console.error("Failed to save steamId to profile", err);
+      }
+    }
+
+    await performSync(idToLink);
   };
 
   const performSync = async (sid: string) => {
@@ -247,30 +272,101 @@ export const SteamValidator: React.FC<SteamValidatorProps> = ({ gameId, onClose 
                        >
                           <RefreshCw className="w-4 h-4" /> Sincronizar Agora
                        </button>
-                       <button 
-                         onClick={handleSteamLogin}
-                         disabled={isConfigured === false}
-                         className={`mt-4 w-full text-[10px] font-black uppercase tracking-widest transition-colors ${isConfigured === false ? 'text-gray-700 cursor-not-allowed' : 'text-gray-500 hover:text-white'}`}
-                       >
-                          Trocar de Conta Steam
-                       </button>
+                       {showManualInput ? (
+                         <div className="pt-4 text-left animate-fade-in">
+                           <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5 block">Novo ID Steam (SteamID64)</label>
+                           <div className="flex gap-2">
+                             <input 
+                               type="text"
+                               placeholder="76561198000000000"
+                               value={manualSteamId}
+                               onChange={(e) => setManualSteamId(e.target.value)}
+                               className="flex-1 !bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-steam-highlight/50 transition-all font-mono"
+                             />
+                             <button 
+                               onClick={() => handleManualLink()}
+                               disabled={!manualSteamId.trim()}
+                               className="px-4 bg-steam-highlight text-steam-dark font-black text-[10px] uppercase tracking-wider rounded-xl hover:bg-white transition-all disabled:opacity-50"
+                             >
+                               Alterar
+                             </button>
+                           </div>
+                           <button 
+                             onClick={() => setShowManualInput(false)}
+                             className="mt-2 text-[9px] text-gray-500 hover:text-white uppercase font-bold tracking-wider"
+                           >
+                             Cancelar
+                           </button>
+                         </div>
+                       ) : (
+                         <div className="flex flex-col gap-2">
+                           <button 
+                             onClick={handleSteamLogin}
+                             disabled={isConfigured === false}
+                             className={`mt-4 w-full text-[10px] font-black uppercase tracking-widest transition-colors ${isConfigured === false ? 'text-gray-700 cursor-not-allowed' : 'text-gray-500 hover:text-white'}`}
+                           >
+                              Trocar de Conta Steam (Automático)
+                           </button>
+                           <button 
+                             onClick={() => {
+                               setManualSteamId(currentUser?.steamId || '');
+                               setShowManualInput(true);
+                             }}
+                             className="w-full text-[10px] font-black uppercase tracking-widest transition-colors text-gray-500 hover:text-white"
+                           >
+                              Alterar ID Manualmente
+                           </button>
+                         </div>
+                       )}
                     </div>
                   </>
                 ) : (
                   <>
                     <h3 className="text-white font-black text-xl mb-4 uppercase tracking-tighter">Vincular Conta Steam</h3>
-                    <p className="text-gray-500 max-w-sm mx-auto mb-8 text-sm leading-relaxed">
-                        Clique no botão abaixo para entrar com sua conta Steam e sincronizar automaticamente as conquistas que você já desbloqueou.
+                    <p className="text-gray-500 max-w-sm mx-auto mb-6 text-sm leading-relaxed">
+                        Escolha uma das opções abaixo para sincronizar as conquistas que você já desbloqueou na Steam.
                     </p>
                     
-                    <div className="max-w-xs mx-auto space-y-4">
-                       <button 
-                         onClick={handleSteamLogin}
-                         disabled={isConfigured === false}
-                         className={`w-full border border-transparent font-black uppercase tracking-[0.2em] py-4 rounded-xl flex items-center justify-center gap-3 transition-all text-xs ${isConfigured === false ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[#171a21] hover:bg-[#2a475e] text-white shadow-[0_0_20px_rgba(102,192,244,0.1)] hover:scale-105 active:scale-95'}`}
-                       >
-                          <LogIn className="w-4 h-4 text-steam-highlight" /> Entrar com Steam
-                       </button>
+                    <div className="max-w-sm mx-auto space-y-6">
+                       <div>
+                         <button 
+                           onClick={handleSteamLogin}
+                           disabled={isConfigured === false}
+                           className={`w-full border border-transparent font-black uppercase tracking-[0.2em] py-4 rounded-xl flex items-center justify-center gap-3 transition-all text-xs ${isConfigured === false ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[#171a21] hover:bg-[#2a475e] text-white shadow-[0_0_20px_rgba(102,192,244,0.1)] hover:scale-105 active:scale-95'}`}
+                         >
+                            <LogIn className="w-4 h-4 text-steam-highlight" /> Entrar com Steam
+                         </button>
+                         <p className="text-[9px] text-gray-600 mt-2 text-center">
+                           * Método automático via pop-up de login da Steam.
+                         </p>
+                       </div>
+
+                       <div className="h-px bg-white/5 flex items-center justify-center relative">
+                         <span className="bg-[#0d1117] px-3 text-[9px] font-black text-gray-500 uppercase tracking-widest">OU INSERIR MANUALMENTE</span>
+                       </div>
+
+                       <div className="text-left bg-black/20 p-4 rounded-xl border border-white/5">
+                         <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">ID da Conta Steam (SteamID64)</label>
+                         <div className="flex gap-2">
+                           <input 
+                             type="text"
+                             placeholder="Ex: 76561198031524385"
+                             value={manualSteamId}
+                             onChange={(e) => setManualSteamId(e.target.value)}
+                             className="flex-1 !bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-steam-highlight/50 transition-all font-mono"
+                           />
+                           <button 
+                             onClick={() => handleManualLink()}
+                             disabled={!manualSteamId.trim()}
+                             className="px-4 bg-steam-highlight/10 text-steam-highlight border border-steam-highlight/20 font-black text-[10px] uppercase tracking-wider rounded-xl hover:bg-steam-highlight hover:text-steam-dark transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                           >
+                             Vincular
+                           </button>
+                         </div>
+                         <p className="text-[9px] text-gray-500 mt-2.5 leading-relaxed">
+                           Seu ID da Steam é o código numérico de 17 dígitos (SteamID64). Você pode encontrá-lo nas configurações do seu perfil Steam ou no site <a href="https://steamid.io" target="_blank" rel="noreferrer" className="text-steam-highlight hover:underline font-bold">steamid.io</a>.
+                         </p>
+                       </div>
                     </div>
                   </>
                 )}

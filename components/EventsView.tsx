@@ -5,7 +5,7 @@ import { Calendar, Trophy, Zap, Plus, Edit2, Trash2, Clock, CheckCircle2, X, Sav
 import { GameEvent } from '../types';
 
 export const EventsView: React.FC = () => {
-  const { events, currentUser, showToast, addEvent, updateEvent, deleteEvent } = useApp();
+  const { events, currentUser, showToast, addEvent, updateEvent, deleteEvent, showConfirm } = useApp();
   const isAdmin = currentUser?.isAdmin || false;
   
   const [editingEvent, setEditingEvent] = useState<Partial<GameEvent> | null>(null);
@@ -115,7 +115,7 @@ export const EventsView: React.FC = () => {
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => { if(window.confirm('Excluir este evento?')) deleteEvent(event.id); }}
+                        onClick={() => { showConfirm('Excluir este evento?', () => deleteEvent(event.id)); }}
                         className="p-2.5 bg-red-600 text-white rounded-xl shadow-xl hover:scale-110 transition-all"
                       >
                         <Trash2 className="w-4 h-4" />

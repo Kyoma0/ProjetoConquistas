@@ -6,7 +6,7 @@ import { CommunityGroup, CommunityPost, CommunityMember } from '../types';
 import { api } from '../backend';
 
 export const CommunitiesView: React.FC = () => {
-  const { currentUser, communityGroups, communityPosts, createCommunityGroup, joinCommunityGroup, leaveCommunityGroup, banUserFromGroup, unbanUserFromGroup, deleteCommunityGroup, createCommunityPost, getCommunityMembers, users, showToast } = useApp();
+  const { currentUser, communityGroups, communityPosts, createCommunityGroup, joinCommunityGroup, leaveCommunityGroup, banUserFromGroup, unbanUserFromGroup, deleteCommunityGroup, createCommunityPost, getCommunityMembers, users, showToast, showConfirm } = useApp();
   const [viewMode, setViewMode] = useState<'list' | 'group'>('list');
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,11 +111,11 @@ export const CommunitiesView: React.FC = () => {
 
   const handleDeleteGroup = async () => {
     if (!selectedGroupId) return;
-    if (confirm("Tem certeza que deseja excluir este grupo?")) {
+    showConfirm("Tem certeza que deseja excluir este grupo?", async () => {
       await deleteCommunityGroup(selectedGroupId);
       setViewMode('list');
       setSelectedGroupId(null);
-    }
+    });
   };
 
   if (viewMode === 'group' && selectedGroup) {
