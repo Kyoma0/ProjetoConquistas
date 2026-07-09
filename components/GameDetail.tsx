@@ -2157,6 +2157,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
                     );
                  })}
               </div>
+            </div>
             ) : (activeTab === 'wiki' || activeTab === 'extras') ? (
                <div className="animate-fade-in flex flex-col md:flex-row gap-8">
                  {/* Sidebar da Wiki */}
@@ -2443,6 +2444,9 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
                </div>
             )}
          </div>
+         </div>
+       ) : null}
+     </div>
 
          {/* Right: Stats & Sidebar Info */}
          <div className="space-y-8">
@@ -2483,10 +2487,6 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
              </div>
           </div>
         </div>
-        </div>
-      ) : null}
-       </div>
-      </div>
       </div>
 
       {selectedAchievement && (

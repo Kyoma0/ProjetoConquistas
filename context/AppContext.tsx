@@ -136,6 +136,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
+          // Sync custom admin claims on server
+          try {
+            const token = await firebaseUser.getIdToken();
+            const syncRes = await fetch('/api/auth/sync-admin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token })
+            });
+            if (syncRes.ok) {
+              const syncData = await syncRes.json();
+              if (syncData.admin) {
+                // Force token refresh to make sure custom claim is visible in future request headers / firebase calls
+                await firebaseUser.getIdToken(true);
+              }
+            }
+          } catch (syncErr) {
+            console.error("Erro ao sincronizar claims de admin no servidor:", syncErr);
+          }
+
           // Initial fetch
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid)).catch(e => handleFirestoreError(e, OperationType.GET, `users/${firebaseUser.uid}`));
           if (userDoc.exists()) {
@@ -258,22 +277,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoading(true);
       try {
         const collectionsToSync = [
-          { name: 'games', setter: setGames },
-          { name: 'achievements', setter: setAchievements },
-          { name: 'storeItems', setter: setStoreItems },
-          { name: 'events', setter: setEvents },
-          { name: 'communityGroups', setter: setCommunityGroups },
-          { name: 'generalNotifications', setter: setGeneralNotifications },
-          { name: 'levels', setter: setLevels },
-          { name: 'contents', setter: setContents },
-          { name: 'subPages', setter: setSubPages },
-          { name: 'wallpapers', setter: setWallpapers },
+          { name: 'games', setter: setGames as (data: any[]) => void },
+          { name: 'achievements', setter: setAchievements as (data: any[]) => void },
+          { name: 'storeItems', setter: setStoreItems as (data: any[]) => void },
+          { name: 'events', setter: setEvents as (data: any[]) => void },
+          { name: 'communityGroups', setter: setCommunityGroups as (data: any[]) => void },
+          { name: 'generalNotifications', setter: setGeneralNotifications as (data: any[]) => void },
+          { name: 'levels', setter: setLevels as (data: any[]) => void },
+          { name: 'contents', setter: setContents as (data: any[]) => void },
+          { name: 'subPages', setter: setSubPages as (data: any[]) => void },
+          { name: 'wallpapers', setter: setWallpapers as (data: any[]) => void },
         ];
 
         collectionsToSync.forEach(col => {
           const unsub = onSnapshot(collection(db, col.name), (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            col.setter(data as any);
+            col.setter(data);
           }, (error) => {
             handleFirestoreError(error, OperationType.LIST, col.name);
           });
@@ -283,8 +302,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Feedbacks - Admin only
         if (currentUser?.isAdmin) {
           const unsubFeedbacks = onSnapshot(collection(db, 'feedbacks'), (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setFeedbacks(data as any);
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Feedback));
+            setFeedbacks(data);
           }, (error) => {
             handleFirestoreError(error, OperationType.LIST, 'feedbacks');
           });
@@ -410,8 +429,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Community Memberships
           const unsubMemberships = onSnapshot(collectionGroup(db, 'members'), (snapshot) => {
             const memberships = snapshot.docs
-              .map(doc => ({ id: doc.id, ...doc.data() } as any))
-              .filter((m: any) => m.userId === currentUser.id) as CommunityMember[];
+              .map(doc => {
+                const data = doc.data();
+                return {
+                  groupId: data.groupId || '',
+                  userId: data.userId || '',
+                  role: data.role || 'member',
+                  isBanned: data.isBanned || false,
+                  bannedAt: data.bannedAt,
+                  bannedBy: data.bannedBy,
+                } as CommunityMember;
+              })
+              .filter((m) => m.userId === currentUser.id);
             setMyCommunityMemberships(memberships);
           }, (error) => {
             handleFirestoreError(error, OperationType.LIST, 'community_memberships');
@@ -1291,11 +1320,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser) return;
     const isAlreadyCompleted = userProgress[achievementId]?.status === AchievementStatus.COMPLETED;
     
-    const progressData: any = { 
+    const progressData: UserAchievementProgress = { 
       achievementId, 
       status, 
-      proofUrl: proofUrl || null,
-      validatedMethod: method || null,
+      proofUrl: proofUrl || undefined,
+      validatedMethod: method || undefined,
       validatedAt: new Date().toISOString() 
     };
 

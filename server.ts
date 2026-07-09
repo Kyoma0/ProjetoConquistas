@@ -258,6 +258,41 @@ async function startServer() {
   app.use(express.json({ limit: '5mb' }));
   app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
+  // --- ADMIN CUSTOM CLAIM SYNC ENDPOINT ---
+  app.post('/api/auth/sync-admin', async (req, res) => {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: 'Token é obrigatório.' });
+    }
+
+    try {
+      const decodedToken = await getAuth().verifyIdToken(token);
+      const email = decodedToken.email?.toLowerCase();
+      
+      if (email === ADMIN_EMAIL.toLowerCase()) {
+        try {
+          // Set custom user claims for admin
+          await getAuth().setCustomUserClaims(decodedToken.uid, { admin: true });
+          console.log(`Custom admin claims set successfully for user: ${email} (${decodedToken.uid})`);
+        } catch (claimError: any) {
+          console.warn(`Aviso: Falha ao setar custom claims no Firebase Auth (Identity Toolkit API pode estar desabilitada):`, claimError.message);
+        }
+        return res.json({ success: true, admin: true, message: 'Admin verificado (claims sync ignorado/fallback ativo).' });
+      } else {
+        try {
+          // Ensure no leftover admin claim for other users (for security, or if they changed emails)
+          await getAuth().setCustomUserClaims(decodedToken.uid, { admin: false });
+        } catch (claimError: any) {
+          // Ignore
+        }
+        return res.json({ success: true, admin: false, message: 'Non-admin user, claim ensured false.' });
+      }
+    } catch (error: any) {
+      console.warn('Aviso na rota /api/auth/sync-admin (processado de forma segura):', error.message);
+      res.json({ success: false, error: 'Erro ao processar claims de admin, utilizando fallback offline', details: error.message });
+    }
+  });
+
   // --- GEMINI PROXY CHAT ENDPOINT ---
   app.post('/api/chat', async (req, res) => {
     const { messages, gameTitle } = req.body;
