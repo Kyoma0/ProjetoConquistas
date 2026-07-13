@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { Game, AchievementStatus, Difficulty, Achievement, Content, ContentType, MapHotspot, Hotspot } from '../types';
@@ -988,13 +989,18 @@ const BuilderBlock: React.FC<{
           )}
       </div>
       {/* Modal de Edição de Hotspot */}
-      {editingHotspot && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] p-4 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[#1b2838] p-8 rounded-3xl w-full max-w-md border border-white/10 shadow-5xl">
+      {editingHotspot && createPortal(
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4 backdrop-blur-sm animate-fade-in" onClick={() => setEditingHotspot(null)}>
+          <div className="bg-[#1b2838] p-8 rounded-3xl w-full max-w-md border border-white/10 shadow-5xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
-                <Target className="w-4 h-4 text-steam-highlight" /> Configurar Ponto
-              </h3>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                  <Target className="w-4 h-4 text-steam-highlight" /> Configurar Ponto
+                </h3>
+                <span className="text-[10px] font-mono text-steam-highlight font-bold">
+                  Coordenadas: (X: {(editingHotspot.x * 100).toFixed(1)}%, Y: {(editingHotspot.y * 100).toFixed(1)}%)
+                </span>
+              </div>
               <button 
                 onClick={() => setEditingHotspot(null)}
                 className="p-2 text-gray-500 hover:text-white transition-all"
@@ -1155,7 +1161,8 @@ const BuilderBlock: React.FC<{
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* BOTÃO DE ADICIONAR ENTRE BLOCOS */}
       {isEditMode && (
