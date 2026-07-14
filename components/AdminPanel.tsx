@@ -18,7 +18,8 @@ type ViewState =
   | { type: 'events_management' }
   | { type: 'notifications' }
   | { type: 'levels' }
-  | { type: 'design' };
+  | { type: 'design' }
+  | { type: 'xp_table' };
 
 export const RenderAchIcon = ({ icon, className = "w-12 h-12" }: { icon: string, className?: string }) => {
   const isImage = icon?.startsWith('http') || icon?.startsWith('data:image');
@@ -67,6 +68,18 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
   const [vipSelectionUserId, setVipSelectionUserId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
+  // XP Table View States
+  const [xpSearchTerm, setXpSearchTerm] = useState('');
+  const [xpGameFilter, setXpGameFilter] = useState('all');
+  const [xpDifficultyFilter, setXpDifficultyFilter] = useState('all');
+  const [editingXpValues, setEditingXpValues] = useState<Record<string, string>>({});
+  const [isBulkApplying, setIsBulkApplying] = useState(false);
+  // Bulk presets local state
+  const [easyXpPreset, setEasyXpPreset] = useState(10);
+  const [mediumXpPreset, setMediumXpPreset] = useState(25);
+  const [hardXpPreset, setHardXpPreset] = useState(50);
+  const [extremeXpPreset, setExtremeXpPreset] = useState(100);
+
   const storeFileInputRef = useRef<HTMLInputElement>(null);
   const eventBannerRef = useRef<HTMLInputElement>(null);
   const gameCoverFileInputRef = useRef<HTMLInputElement>(null);
@@ -85,9 +98,56 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
     );
   }, [storeItems, searchTerm]);
 
+  const filteredAchievementsForXpTable = useMemo(() => {
+    return achievements.filter(ach => {
+      if (xpSearchTerm.trim()) {
+        const search = xpSearchTerm.toLowerCase();
+        const matchesName = ach.name?.toLowerCase().includes(search);
+        const matchesDesc = ach.description?.toLowerCase().includes(search);
+        const game = games.find(g => g.id === ach.gameId);
+        const matchesGame = game ? game.title?.toLowerCase().includes(search) : false;
+        if (!matchesName && !matchesDesc && !matchesGame) return false;
+      }
+      if (xpGameFilter !== 'all' && ach.gameId !== xpGameFilter) {
+        return false;
+      }
+      if (xpDifficultyFilter !== 'all' && ach.difficulty !== xpDifficultyFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [achievements, games, xpSearchTerm, xpGameFilter, xpDifficultyFilter]);
+
   const handleSaveRewardSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateRewardSettings(localRewardSettings);
+  };
+
+  const handleSaveIndividualXp = async (ach: Achievement) => {
+    const stringVal = editingXpValues[ach.id];
+    if (stringVal === undefined) return;
+    const parsedVal = parseInt(stringVal, 10);
+    if (isNaN(parsedVal) || parsedVal < 0) {
+      showToast("Por favor, digite um valor de XP válido (maior ou igual a 0).", "error");
+      return;
+    }
+
+    try {
+      await updateAchievement({
+        ...ach,
+        xp: parsedVal,
+        updatedAt: new Date().toISOString()
+      } as Achievement);
+      
+      setEditingXpValues(prev => {
+        const next = { ...prev };
+        delete next[ach.id];
+        return next;
+      });
+      showToast(`XP de "${ach.name}" atualizado para ${parsedVal}!`, "success");
+    } catch (error) {
+      showToast("Falha ao salvar valor de XP.", "error");
+    }
   };
 
   const handleStoreFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -439,6 +499,7 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
            <button onClick={() => setView({ type: 'notifications' })} className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${view.type === 'notifications' ? 'bg-steam-highlight text-steam-dark' : 'bg-steam-light/20'}`}><Mail className="w-3.5 h-3.5" /> Notificação Geral</button>
            <button onClick={() => setView({ type: 'dashboard' })} className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest transition-all ${view.type === 'dashboard' ? 'bg-steam-highlight text-steam-dark' : 'bg-steam-light/20'}`}>Geral</button>
            <button onClick={() => setView({ type: 'levels' })} className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${view.type === 'levels' ? 'bg-steam-highlight text-steam-dark' : 'bg-steam-light/20'}`}><BarChart2 className="w-3.5 h-3.5" /> Níveis</button>
+           <button onClick={() => setView({ type: 'xp_table' })} className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${view.type === 'xp_table' ? 'bg-steam-highlight text-steam-dark' : 'bg-steam-light/20'}`}><Zap className="w-3.5 h-3.5" /> Tabela de XP</button>
            <button onClick={() => setView({ type: 'games' })} className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest transition-all ${['games', 'achievements'].includes(view.type) ? 'bg-steam-highlight text-steam-dark' : 'bg-steam-light/20'}`}>Jogos</button>
            <button onClick={() => setView({ type: 'events_management' })} className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${view.type === 'events_management' ? 'bg-steam-highlight text-steam-dark' : 'bg-steam-light/20'}`}><Calendar className="w-3.5 h-3.5" /> Eventos</button>
            <button onClick={() => setView({ type: 'feedbacks' })} className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${view.type === 'feedbacks' ? 'bg-steam-highlight text-steam-dark' : 'bg-steam-light/20'}`}><MessageSquare className="w-3.5 h-3.5" /> Comentários</button>
@@ -1425,6 +1486,331 @@ export const AdminPanel: React.FC<{ onViewUserProfile: (userId: string) => void 
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {view.type === 'xp_table' && (
+          <div className="animate-fade-in max-w-6xl space-y-6">
+            <header className="mb-6 flex flex-col md:flex-row md:items-center justify-between border-b border-white/5 pb-6 gap-4">
+              <div>
+                <h2 className="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+                  <Zap className="text-steam-highlight w-8 h-8" /> 
+                  Tabela de XP de Conquistas
+                </h2>
+                <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mt-1">Gerencie, filtre e configure os valores de XP em lote ou individualmente</p>
+              </div>
+            </header>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-steam-dark p-4 rounded-2xl border border-white/5 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-steam-highlight/10 flex items-center justify-center text-steam-highlight shrink-0">
+                  <Trophy className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">Total Conquistas</div>
+                  <div className="text-xl font-black text-white font-mono">{filteredAchievementsForXpTable.length}</div>
+                </div>
+              </div>
+
+              <div className="bg-steam-dark p-4 rounded-2xl border border-white/5 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 shrink-0">
+                  <Coins className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">Soma Total de XP</div>
+                  <div className="text-xl font-black text-white font-mono">
+                    {filteredAchievementsForXpTable.reduce((acc, curr) => acc + curr.xp, 0).toLocaleString()} XP
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-steam-dark p-4 rounded-2xl border border-white/5 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500 shrink-0">
+                  <Zap className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">Média de XP / Conquista</div>
+                  <div className="text-xl font-black text-white font-mono">
+                    {filteredAchievementsForXpTable.length > 0 
+                      ? Math.round(filteredAchievementsForXpTable.reduce((acc, curr) => acc + curr.xp, 0) / filteredAchievementsForXpTable.length) 
+                      : 0} XP
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bulk Apply Presets */}
+            <div className="bg-[#1b2838]/80 border border-white/10 p-6 rounded-[24px] shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none"><Zap className="w-32 h-32 text-steam-highlight" /></div>
+              <h3 className="text-sm font-black text-white uppercase tracking-wider mb-2 flex items-center gap-2">
+                <Settings2 className="w-4 h-4 text-steam-highlight" /> Ajuste de XP em Lote (Bulk Apply)
+              </h3>
+              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-4 leading-relaxed">
+                Configure valores padrão para TODAS as conquistas que correspondem ao filtro de jogo selecionado atualmente.
+              </p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                <div>
+                  <label className="text-[9px] text-green-400 font-black uppercase mb-1 block tracking-wider">Preset Fácil</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="w-full bg-[#171a21] border border-white/10 rounded-lg p-2.5 text-white text-xs font-mono text-center font-bold focus:border-steam-highlight outline-none" 
+                    value={easyXpPreset} 
+                    onChange={e => setEasyXpPreset(parseInt(e.target.value) || 0)} 
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-blue-400 font-black uppercase mb-1 block tracking-wider">Preset Médio</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="w-full bg-[#171a21] border border-white/10 rounded-lg p-2.5 text-white text-xs font-mono text-center font-bold focus:border-steam-highlight outline-none" 
+                    value={mediumXpPreset} 
+                    onChange={e => setMediumXpPreset(parseInt(e.target.value) || 0)} 
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-orange-400 font-black uppercase mb-1 block tracking-wider">Preset Difícil</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="w-full bg-[#171a21] border border-white/10 rounded-lg p-2.5 text-white text-xs font-mono text-center font-bold focus:border-steam-highlight outline-none" 
+                    value={hardXpPreset} 
+                    onChange={e => setHardXpPreset(parseInt(e.target.value) || 0)} 
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] text-red-400 font-black uppercase mb-1 block tracking-wider">Preset Extremo</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="w-full bg-[#171a21] border border-white/10 rounded-lg p-2.5 text-white text-xs font-mono text-center font-bold focus:border-steam-highlight outline-none" 
+                    value={extremeXpPreset} 
+                    onChange={e => setExtremeXpPreset(parseInt(e.target.value) || 0)} 
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const achievementsToUpdate = achievements.filter(ach => {
+                      if (xpGameFilter !== 'all' && ach.gameId !== xpGameFilter) return false;
+                      return true;
+                    });
+
+                    if (achievementsToUpdate.length === 0) {
+                      showToast("Nenhuma conquista correspondente para aplicar o lote.", "error");
+                      return;
+                    }
+
+                    const gameName = xpGameFilter === 'all' ? 'TODOS os jogos' : (games.find(g => g.id === xpGameFilter)?.title || 'jogo selecionado');
+
+                    showConfirm(`Deseja alterar o XP das ${achievementsToUpdate.length} conquista(s) de "${gameName}" para os valores dos presets acima?`, async () => {
+                      setIsBulkApplying(true);
+                      try {
+                        const batch = writeBatch(db);
+                        let updatedCount = 0;
+                        for (const ach of achievementsToUpdate) {
+                          let targetVal = ach.xp;
+                          if (ach.difficulty === 'Fácil') targetVal = easyXpPreset;
+                          else if (ach.difficulty === 'Médio') targetVal = mediumXpPreset;
+                          else if (ach.difficulty === 'Difícil') targetVal = hardXpPreset;
+                          else if (ach.difficulty === 'Extremo') targetVal = extremeXpPreset;
+
+                          if (targetVal !== ach.xp) {
+                            const updated = { ...ach, xp: targetVal, updatedAt: new Date().toISOString() };
+                            batch.set(doc(db, 'achievements', ach.id), updated);
+                            updatedCount++;
+                          }
+                        }
+
+                        if (updatedCount > 0) {
+                          await batch.commit();
+                          showToast(`${updatedCount} conquista(s) atualizada(s) com sucesso em lote!`, "success");
+                        } else {
+                          showToast("Nenhuma conquista precisava de alteração.", "info");
+                        }
+                      } catch (err) {
+                        console.error(err);
+                        showToast("Erro ao processar atualização em lote.", "error");
+                      } finally {
+                        setIsBulkApplying(false);
+                      }
+                    });
+                  }}
+                  disabled={isBulkApplying}
+                  className="bg-steam-highlight text-steam-dark font-black uppercase text-[10px] tracking-widest px-6 py-2.5 rounded-lg flex items-center gap-2 hover:bg-white transition-all shadow-md"
+                >
+                  {isBulkApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                  {isBulkApplying ? "Aplicando Lote..." : `Aplicar em Lote (${xpGameFilter === 'all' ? 'Todos os Jogos' : 'Jogo Filtrado'})`}
+                </button>
+              </div>
+            </div>
+
+            {/* Filter controls */}
+            <div className="bg-steam-dark p-4 rounded-xl border border-white/5 flex flex-col md:flex-row md:items-center gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Buscar conquista pelo nome ou descrição..."
+                  className="w-full bg-[#171a21] border border-transparent rounded-lg pl-10 pr-4 py-2.5 text-xs text-white outline-none focus:border-steam-highlight"
+                  value={xpSearchTerm}
+                  onChange={e => setXpSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Jogo:</span>
+                  <select
+                    className="bg-[#171a21] border border-white/5 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-steam-highlight"
+                    value={xpGameFilter}
+                    onChange={e => setXpGameFilter(e.target.value)}
+                  >
+                    <option value="all">Todos os Jogos</option>
+                    {games.map(g => (
+                      <option key={g.id} value={g.id}>{g.title}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Dificuldade:</span>
+                  <select
+                    className="bg-[#171a21] border border-white/5 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-steam-highlight"
+                    value={xpDifficultyFilter}
+                    onChange={e => setXpDifficultyFilter(e.target.value)}
+                  >
+                    <option value="all">Todas as Dificuldades</option>
+                    <option value="Fácil">Fácil</option>
+                    <option value="Médio">Médio</option>
+                    <option value="Difícil">Difícil</option>
+                    <option value="Extremo">Extremo</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="bg-steam-dark rounded-2xl border border-white/5 overflow-hidden">
+              {filteredAchievementsForXpTable.length === 0 ? (
+                <div className="py-20 text-center opacity-20 border-2 border-dashed border-transparent rounded-2xl uppercase font-black text-[10px] tracking-[0.4em]">
+                  Nenhuma conquista encontrada com os filtros atuais.
+                </div>
+              ) : (
+                <div className="overflow-x-auto font-sans">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/5 bg-[#171d25]/50">
+                        <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Conquista</th>
+                        <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jogo</th>
+                        <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Dificuldade</th>
+                        <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Valor XP</th>
+                        <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredAchievementsForXpTable.map(ach => {
+                        const game = games.find(g => g.id === ach.gameId);
+                        const isEdited = editingXpValues[ach.id] !== undefined && editingXpValues[ach.id] !== ach.xp.toString();
+                        const currentVal = editingXpValues[ach.id] !== undefined ? editingXpValues[ach.id] : ach.xp.toString();
+
+                        let difficultyColor = 'text-green-400 bg-green-500/10 border-green-500/20';
+                        if (ach.difficulty === 'Médio') difficultyColor = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+                        else if (ach.difficulty === 'Difícil') difficultyColor = 'text-orange-400 bg-orange-500/10 border-orange-500/20';
+                        else if (ach.difficulty === 'Extremo') difficultyColor = 'text-red-400 bg-red-500/10 border-red-500/20';
+
+                        return (
+                          <tr key={ach.id} className="hover:bg-white/5 transition-all">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <RenderAchIcon icon={ach.icon} className="w-10 h-10 rounded border border-white/10" />
+                                <div>
+                                  <div className="font-bold text-white text-xs uppercase tracking-tight">{ach.name}</div>
+                                  <div className="text-[10px] text-gray-500 line-clamp-1 max-w-sm">{ach.description}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="font-medium text-white/80 text-xs uppercase tracking-tight truncate max-w-[150px]">
+                                {game?.title || 'Jogo desconhecido'}
+                              </div>
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className={`px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-wider border ${difficultyColor}`}>
+                                {ach.difficulty}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className={`w-20 bg-[#171a21] border rounded px-2.5 py-1.5 text-center font-mono font-bold text-xs outline-none transition-all ${
+                                    isEdited ? 'border-steam-highlight text-steam-highlight shadow-[0_0_10px_rgba(102,192,244,0.1)]' : 'border-white/10 text-white'
+                                  }`}
+                                  value={currentVal}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setEditingXpValues(prev => ({
+                                      ...prev,
+                                      [ach.id]: val
+                                    }));
+                                  }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' && isEdited) {
+                                      handleSaveIndividualXp(ach);
+                                    }
+                                  }}
+                                />
+                                <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">XP</span>
+                              </div>
+                            </td>
+                            <td className="p-4 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                {isEdited ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveIndividualXp(ach)}
+                                      className="p-1.5 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded border border-green-500/30 transition-all text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 animate-pulse"
+                                      title="Salvar valor de XP"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" /> Salvar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingXpValues(prev => {
+                                          const next = { ...prev };
+                                          delete next[ach.id];
+                                          return next;
+                                        });
+                                      }}
+                                      className="p-1.5 bg-white/5 text-gray-400 hover:bg-white/10 rounded border border-transparent transition-all text-[9px] font-black uppercase tracking-wider"
+                                      title="Descartar alteração"
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-[9px] text-gray-600 uppercase font-black tracking-widest">Salvo</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

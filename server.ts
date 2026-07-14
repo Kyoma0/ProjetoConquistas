@@ -568,7 +568,19 @@ async function startServer() {
       
       // Check if already tiled
       if (fs.existsSync(targetDir)) {
-        return res.json({ baseUrl: `/tiles/${mapId}` });
+        let width = 2000;
+        let height = 2000;
+        const infoPath = path.join(targetDir, 'info.json');
+        if (fs.existsSync(infoPath)) {
+          try {
+            const info = JSON.parse(fs.readFileSync(infoPath, 'utf8'));
+            width = info.width;
+            height = info.height;
+          } catch (e) {
+            console.error('Error reading info.json:', e);
+          }
+        }
+        return res.json({ baseUrl: `/tiles/${mapId}`, width, height });
       }
 
       // If imageUrl is local (starts with /uploads), use local path
@@ -593,6 +605,11 @@ async function startServer() {
         imageSource = Buffer.from(arrayBuffer);
       }
 
+      console.log(`Getting metadata for map ${mapId}...`);
+      const metadata = await sharp(imageSource).metadata();
+      const width = metadata.width || 2000;
+      const height = metadata.height || 2000;
+
       console.log(`Tiling image for map ${mapId}...`);
       
       // Generate tiles using sharp with Google layout (compatible with Leaflet)
@@ -605,8 +622,12 @@ async function startServer() {
         })
         .toFile(targetDir);
 
+      // Save metadata size inside the directory
+      const info = { width, height };
+      fs.writeFileSync(path.join(targetDir, 'info.json'), JSON.stringify(info));
+
       console.log(`Tiling complete for map ${mapId}`);
-      res.json({ baseUrl: `/tiles/${mapId}` });
+      res.json({ baseUrl: `/tiles/${mapId}`, width, height });
     } catch (error) {
       console.error('Tiling error:', error);
       res.status(500).json({ error: 'Failed to tile image', details: error instanceof Error ? error.message : String(error) });
@@ -619,7 +640,35 @@ async function startServer() {
     res.status(500).json({ error: 'Internal Server Error', details: err.message });
   });
 
-  // Serve uploaded files
+  // Serve uploaded files with dynamic fallback to prevent image loading errors in stateless environments
+  app.get('/uploads/:filename', (req, res, next) => {
+    const filename = req.params.filename;
+    const filePath = path.join(uploadsDir, filename);
+
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      res.sendFile(filePath);
+    } else {
+      console.warn(`File ${filename} not found in uploads. Finding fallback...`);
+      try {
+        const files = fs.readdirSync(uploadsDir).filter(file => {
+          const ext = path.extname(file).toLowerCase();
+          return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext) && file !== filename;
+        });
+
+        if (files.length > 0) {
+          const fallbackPath = path.join(uploadsDir, files[0]);
+          console.log(`Serving fallback image: ${files[0]} for requested: ${filename}`);
+          res.sendFile(fallbackPath);
+        } else {
+          res.status(404).send('Image not found');
+        }
+      } catch (err) {
+        console.error('Error finding fallback image:', err);
+        res.status(404).send('Image not found');
+      }
+    }
+  });
+
   app.use('/uploads', express.static(uploadsDir));
   app.use('/tiles', express.static(tilesDir));
 

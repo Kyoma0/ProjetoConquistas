@@ -4,7 +4,7 @@ import { MapContainer, ImageOverlay, TileLayer, Marker, Popup, useMap, useMapEve
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapHotspot } from '../types';
-import { Map, Plus, Target, X, Edit2, Link as LinkIcon, Image as ImageIcon, Search } from 'lucide-react';
+import { Map, Plus, Target, X, Edit2, Link as LinkIcon, Image as ImageIcon, Search, HelpCircle, Check, Award, Info, Sparkles } from 'lucide-react';
 
 // Fix Leaflet default icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -21,13 +21,21 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 interface InteractiveMapProps {
   imageUrl: string;
+  mapId?: string;
+  onUpdateImageUrl?: (url: string) => void;
   hotspots: MapHotspot[];
   isAdmin?: boolean;
+  isEditingHotspot?: boolean;
   onAddHotspot?: (x: number, y: number) => void;
   onEditHotspot?: (hotspot: MapHotspot) => void;
   onUpdateHotspot?: (hotspot: MapHotspot) => void;
   onDeleteHotspot?: (id: string) => void;
   onHotspotClick?: (hotspot: MapHotspot) => void;
+  categories?: { key: string; label: string; icon?: string }[];
+  onUpdateCategories?: (categories: { key: string; label: string; icon?: string }[]) => void;
+  mapWidth?: number;
+  mapHeight?: number;
+  onUpdateMapDimensions?: (width: number, height: number) => void;
 }
 
 const MapEvents = ({ 
@@ -44,7 +52,7 @@ const MapEvents = ({
   return null;
 };
 
-const createCustomIcon = (hs: MapHotspot, currentZoom: number) => {
+const createCustomIcon = (hs: MapHotspot, currentZoom: number, isCompleted: boolean, categories: { key: string; label: string; icon?: string }[] = []) => {
   const getIconSvg = (name: string) => {
     const icons: Record<string, string> = {
       'target': '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>',
@@ -68,7 +76,15 @@ const createCustomIcon = (hs: MapHotspot, currentZoom: number) => {
       'book': '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'
     };
     const key = (name || 'target').toLowerCase().trim();
-    return icons[key] || icons['target'];
+    if (icons[key]) return icons[key];
+
+    // Check custom category fallback
+    const customCat = categories.find(c => c.key.toLowerCase().trim() === key);
+    if (customCat && customCat.icon && icons[customCat.icon.toLowerCase().trim()]) {
+      return icons[customCat.icon.toLowerCase().trim()];
+    }
+
+    return icons['target'];
   };
 
   // Base size is 32px (or user defined)
@@ -85,15 +101,23 @@ const createCustomIcon = (hs: MapHotspot, currentZoom: number) => {
 
   const iconHtml = `
     <div class="relative group" style="width: ${baseSize}px; height: ${baseSize}px;">
-      <div class="w-full h-full bg-steam-highlight rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(102,192,244,0.4)] border-2 border-steam-dark overflow-hidden transition-transform duration-300 ease-out"
-           style="transform: scale(${scale});">
+      <div class="w-full h-full rounded-full flex items-center justify-center border-2 overflow-hidden transition-all duration-300 ease-out ${
+        isCompleted 
+          ? 'bg-green-500/20 border-green-500/80 shadow-[0_0_15px_rgba(34,197,94,0.4)] opacity-60' 
+          : 'bg-steam-highlight border-steam-dark shadow-[0_0_20px_rgba(102,192,244,0.4)]'
+      }" style="transform: scale(${scale});">
         ${hs.iconType === 'image' && hs.icon ? 
-          `<img src="${hs.icon}" class="w-full h-full object-cover" />` : 
-          `<svg xmlns="http://www.w3.org/2000/svg" width="${iconInnerSize}" height="${iconInnerSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-steam-dark">${getIconSvg(hs.icon || 'Target')}</svg>`
+          `<img src="${hs.icon}" class="w-full h-full object-cover ${isCompleted ? 'grayscale' : ''}" />` : 
+          `<svg xmlns="http://www.w3.org/2000/svg" width="${iconInnerSize}" height="${iconInnerSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="${isCompleted ? 'text-green-400' : 'text-steam-dark'}">${getIconSvg(hs.icon || 'Target')}</svg>`
         }
       </div>
+      ${isCompleted ? `
+        <div class="absolute -top-1 -right-1 w-4.5 h-4.5 bg-green-500 rounded-full border border-steam-dark flex items-center justify-center shadow-md animate-scale-in">
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+      ` : ''}
       <div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-steam-dark/95 border border-white/10 px-3 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-2xl z-50 backdrop-blur-md scale-90 group-hover:scale-100">
-        <span class="text-[10px] font-black text-white uppercase tracking-widest">${hs.name}</span>
+        <span class="text-[10px] font-black text-white uppercase tracking-widest">${hs.name} ${isCompleted ? '(Concluído)' : ''}</span>
       </div>
     </div>
   `;
@@ -109,33 +133,54 @@ const createCustomIcon = (hs: MapHotspot, currentZoom: number) => {
 const MapController = ({ 
   bounds, 
   onZoomChange, 
-  mapRef 
+  mapRef,
+  setMapInstance
 }: { 
   bounds: L.LatLngBoundsExpression, 
   onZoomChange: (zoom: number) => void, 
-  mapRef: React.MutableRefObject<L.Map | null> 
+  mapRef: React.MutableRefObject<L.Map | null>,
+  setMapInstance: (map: L.Map | null) => void
 }) => {
   const map = useMap();
   
   useEffect(() => {
     if (!map) return;
     mapRef.current = map;
+    setMapInstance(map);
+    
+    // Invalida o tamanho interno do Leaflet para se ajustar perfeitamente ao novo container
+    map.invalidateSize();
     
     const updateMinZoom = () => {
-      // Calcular o zoom que faz a imagem PREENCHER o container (sem barras pretas)
-      // O parâmetro 'true' garante que a imagem ocupe todo o espaço disponível.
+      // Calcular o zoom que faz a imagem cobrir todo o container
+      // O parâmetro 'true' garante que a imagem preencha todo o espaço (cover)
       const minZoom = map.getBoundsZoom(bounds, true);
-      map.setMinZoom(minZoom);
+      map.setMinZoom(minZoom); // Clampa estritamente para o mapa cobrir o fundo
       
-      // Se o zoom atual for menor que o mínimo (ex: no carregamento), ajusta
+      // Se o zoom atual for menor que o mínimo ajustado, ajusta
       if (map.getZoom() < minZoom) {
         map.setZoom(minZoom);
       }
     };
 
     // Configuração inicial
-    map.fitBounds(bounds); // Fit inicial
+    const initialZoom = map.getBoundsZoom(bounds, true);
+    const boundsArr = bounds as number[][];
+    const center: L.LatLngExpression = [boundsArr[1][0] / 2, boundsArr[1][1] / 2];
+    map.setView(center, initialZoom);
     updateMinZoom(); // Ajuste dinâmico do zoom mínimo
+    
+    // Aplicar limite máximo de arrasto de forma estrita no mapa
+    const isBoundsValid = Array.isArray(bounds) && 
+      bounds[1] && 
+      (bounds[1] as any)[0] > 0 && 
+      (bounds[1] as any)[1] > 0;
+
+    if (isBoundsValid) {
+      map.setMaxBounds(bounds);
+      // @ts-ignore
+      map.options.maxBoundsViscosity = 1.0;
+    }
     
     // Centralizar o mapa dentro dos limites
     map.panInsideBounds(bounds, { animate: false });
@@ -146,8 +191,9 @@ const MapController = ({
     return () => {
       map.off('resize', updateMinZoom);
       mapRef.current = null;
+      setMapInstance(null);
     };
-  }, [map, bounds, mapRef, onZoomChange]);
+  }, [map, bounds, mapRef, onZoomChange, setMapInstance]);
 
   useMapEvents({
     zoom: () => onZoomChange(map.getZoom()),
@@ -159,21 +205,71 @@ const MapController = ({
 
 export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   imageUrl,
+  mapId,
+  onUpdateImageUrl,
   hotspots,
   isAdmin,
+  isEditingHotspot,
   onAddHotspot,
   onEditHotspot,
   onUpdateHotspot,
   onDeleteHotspot,
-  onHotspotClick
+  onHotspotClick,
+  categories = [],
+  onUpdateCategories,
+  mapWidth,
+  mapHeight,
+  onUpdateMapDimensions
 }) => {
-  const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
+  const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(() => {
+    if (mapWidth && mapHeight) {
+      return { width: mapWidth, height: mapHeight };
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (mapWidth && mapHeight) {
+      setImageSize({ width: mapWidth, height: mapHeight });
+    }
+  }, [mapWidth, mapHeight]);
+
+  const [isTiledMap, setIsTiledMap] = useState(false);
+  const [isTiling, setIsTiling] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [currentZoom, setCurrentZoom] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [hoverCoords, setHoverCoords] = useState<{ x: number; y: number } | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [completedIds, setCompletedIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('completed_hotspots');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showHelp, setShowHelp] = useState(false);
+  const [showAddFilter, setShowAddFilter] = useState(false);
+  const [newFilterLabel, setNewFilterLabel] = useState('');
+  const [newFilterIcon, setNewFilterIcon] = useState('target');
+  const [filterError, setFilterError] = useState('');
+  const [editingFilter, setEditingFilter] = useState<{ key: string; label: string; icon: string } | null>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const toggleCompleted = (id: string) => {
+    setCompletedIds(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      localStorage.setItem('completed_hotspots', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const totalCount = hotspots.length;
+  const completedCount = hotspots.filter(h => completedIds.includes(h.id)).length;
+  const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   // Define bounds based on image size - memoized to avoid resetting map view on state/zoom updates
   const bounds = useMemo<L.LatLngBoundsExpression>(() => {
@@ -181,20 +277,111 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     return [[0, 0], [imageSize.height, imageSize.width]];
   }, [imageSize]);
 
+  // Strictly constrain the map bounds to the image dimensions to prevent leaking
+  const maxBounds = useMemo<L.LatLngBoundsExpression | undefined>(() => {
+    if (!imageSize) return undefined;
+    return [[0, 0], [imageSize.height, imageSize.width]];
+  }, [imageSize]);
+
+  useEffect(() => {
+    if (!containerRef.current || !mapInstance) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      mapInstance.invalidateSize();
+      // Recalculate zoom and fit bounds if necessary (using true for cover behavior)
+      const minZoom = mapInstance.getBoundsZoom(bounds, true);
+      mapInstance.setMinZoom(minZoom);
+      if (mapInstance.getZoom() < minZoom) {
+        mapInstance.setZoom(minZoom);
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    // Immediate calculation after mounting / stabilization
+    mapInstance.invalidateSize();
+    const minZoom = mapInstance.getBoundsZoom(bounds, true);
+    mapInstance.setMinZoom(minZoom);
+    if (mapInstance.getZoom() < minZoom) {
+      mapInstance.setZoom(minZoom);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [mapInstance, imageSize, bounds]);
+
   useEffect(() => {
     if (!imageUrl) return;
 
-    const img = new Image();
-    img.onload = () => {
-      setImageSize({ width: img.width, height: img.height });
-      setMapReady(true);
-    };
-    img.src = imageUrl;
-  }, [imageUrl]);
+    if (imageUrl.startsWith('/tiles/')) {
+      // It is a tiled map! Fetch metadata info.json
+      fetch(`${imageUrl}/info.json`)
+        .then(res => res.json())
+        .then(data => {
+          setImageSize({ width: data.width, height: data.height });
+          setIsTiledMap(true);
+          setMapReady(true);
+          if (onUpdateMapDimensions && (!mapWidth || !mapHeight)) {
+            onUpdateMapDimensions(data.width, data.height);
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching tile info, using default size:", err);
+          setImageSize({ width: 4000, height: 4000 });
+          setIsTiledMap(true);
+          setMapReady(true);
+        });
+    } else {
+      setIsTiledMap(false);
+      const img = new Image();
+      img.onload = () => {
+        const detectedWidth = img.width;
+        const detectedHeight = img.height;
+        setImageSize({ width: detectedWidth, height: detectedHeight });
+        setMapReady(true);
+        if (onUpdateMapDimensions && (!mapWidth || !mapHeight || mapWidth !== detectedWidth || mapHeight !== detectedHeight)) {
+          onUpdateMapDimensions(detectedWidth, detectedHeight);
+        }
+      };
+      img.onerror = () => {
+        console.error("Error loading map image:", imageUrl);
+        // Fallback for failed images
+        setImageSize({ width: 2000, height: 2000 });
+        setMapReady(true);
+      };
+      img.src = imageUrl;
+    }
+  }, [imageUrl, mapWidth, mapHeight, onUpdateMapDimensions]);
+
+  // Predefined marker categories for filter
+  const defaultFilterCategories = useMemo(() => [
+    { key: 'target', label: 'Alvo', icon: 'target' },
+    { key: 'trophy', label: 'Troféu', icon: 'trophy' },
+    { key: 'sword', label: 'Combate', icon: 'sword' },
+    { key: 'chest', label: 'Baú', icon: 'chest' },
+    { key: 'key', label: 'Chave', icon: 'key' },
+    { key: 'skull', label: 'Chefe', icon: 'skull' },
+    { key: 'star', label: 'Secreto', icon: 'star' },
+    { key: 'info', label: 'Info', icon: 'info' }
+  ], []);
+
+  const filterCategories = useMemo(() => {
+    if (categories && categories.length > 0) {
+      return categories.map(cat => ({
+        key: cat.key.toLowerCase().trim(),
+        label: cat.label,
+        icon: cat.icon || 'target'
+      }));
+    }
+    return defaultFilterCategories;
+  }, [categories, defaultFilterCategories]);
 
   if (!imageSize) {
     return (
-      <div className="w-full h-[600px] bg-steam-dark flex flex-col items-center justify-center rounded-2xl border border-white/5 animate-pulse">
+      <div 
+        className="w-full h-[500px] md:h-[600px] bg-steam-dark flex flex-col items-center justify-center rounded-2xl border border-white/5 animate-pulse mx-auto"
+      >
         <Map className="w-12 h-12 text-gray-700 mb-4" />
         <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Carregando Mapa...</span>
       </div>
@@ -217,8 +404,9 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   };
 
   const handleRecenter = () => {
-    if (mapRef.current) {
-      mapRef.current.fitBounds(bounds);
+    if (mapRef.current && imageSize) {
+      const minZoom = mapRef.current.getBoundsZoom(bounds, true);
+      mapRef.current.setView([imageSize.height / 2, imageSize.width / 2], minZoom);
     }
   };
 
@@ -234,17 +422,51 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     }
   };
 
-  // Predefined marker categories for filter
-  const filterCategories = [
-    { key: 'target', label: 'Alvo' },
-    { key: 'trophy', label: 'Troféu' },
-    { key: 'sword', label: 'Combate' },
-    { key: 'chest', label: 'Baú' },
-    { key: 'key', label: 'Chave' },
-    { key: 'skull', label: 'Chefe' },
-    { key: 'star', label: 'Secreto' },
-    { key: 'info', label: 'Info' }
-  ];
+  const handleTileImage = async () => {
+    if (!imageUrl || isTiling) return;
+    
+    if (imageUrl.startsWith('/tiles/')) {
+      alert("Este mapa já está otimizado para alta resolução.");
+      return;
+    }
+
+    if (!window.confirm("Deseja processar esta imagem para o formato de alta resolução? Isso fatiará o mapa em pequenos blocos (tiling) no servidor, eliminando o lag e permitindo carregar mapas gigantes sem travamentos.")) {
+      return;
+    }
+
+    setIsTiling(true);
+    try {
+      const generatedMapId = mapId || `map_${Date.now()}`;
+      const response = await fetch('/api/tile-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          imageUrl: imageUrl,
+          mapId: generatedMapId
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Erro ao processar imagem');
+      }
+
+      const data = await response.json();
+      if (data.baseUrl) {
+        if (onUpdateImageUrl) {
+          onUpdateImageUrl(data.baseUrl);
+        }
+        alert("Mapa processado com sucesso! Agora ele está otimizado para alta definição e rodará liso.");
+      }
+    } catch (err: any) {
+      console.error("Error tiling map:", err);
+      alert(`Falha ao otimizar o mapa: ${err.message}`);
+    } finally {
+      setIsTiling(false);
+    }
+  };
 
   const toggleFilter = (key: string) => {
     setActiveFilters(prev => 
@@ -260,28 +482,52 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     return activeFilters.includes(hsIcon);
   });
 
+  const maxContainerHeight = 600;
+  const maxContainerWidth = imageSize ? (maxContainerHeight * (imageSize.width / imageSize.height)) : undefined;
+  const aspectRatioString = imageSize ? `${imageSize.width}/${imageSize.height}` : undefined;
+
   return (
-    <div className="relative w-full h-[600px] rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-[#0b0e14] group/map-container">
+    <div 
+      id="map-container"
+      ref={containerRef}
+      className="relative w-full h-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-[#0b0e14] group/map-container mx-auto"
+      style={{ 
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden'
+      }}
+    >
       <MapContainer
         crs={L.CRS.Simple}
         bounds={bounds}
-        maxBounds={bounds}
+        maxBounds={maxBounds}
         maxBoundsViscosity={1.0}
-        maxZoom={8}
-        minZoom={-8}
+        maxZoom={5}
+        minZoom={-12}
         style={{ height: '100%', width: '100%', background: '#0b0e14' }}
         attributionControl={false}
         scrollWheelZoom={true}
         doubleClickZoom={true}
         zoomControl={false}
       >
-        <ImageOverlay
-          url={imageUrl}
-          bounds={bounds}
-        />
+        {isTiledMap ? (
+          <TileLayer
+            url={`${imageUrl}/{z}/{x}/{y}.png`}
+            noWrap={true}
+            bounds={bounds}
+            maxZoom={5}
+            minZoom={-12}
+          />
+        ) : (
+          <ImageOverlay
+            url={imageUrl}
+            bounds={bounds}
+          />
+        )}
         
         <MapEvents onMapClick={handleMapClick} onMouseMove={handleMouseMove} />
-        <MapController bounds={bounds} onZoomChange={setCurrentZoom} mapRef={mapRef} />
+        <MapController bounds={bounds} onZoomChange={setCurrentZoom} mapRef={mapRef} setMapInstance={setMapInstance} />
 
         {filteredHotspots.map((hs) => {
           // Convert relative coordinates (0-1) to map coordinates
@@ -291,7 +537,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
             <Marker 
               key={hs.id} 
               position={position}
-              icon={createCustomIcon(hs, currentZoom)}
+              icon={createCustomIcon(hs, currentZoom, completedIds.includes(hs.id), filterCategories)}
               draggable={isAdmin}
               eventHandlers={{
                 click: (e) => {
@@ -326,6 +572,28 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
                     <span className="font-black text-xs uppercase tracking-wider text-white truncate">{hs.name}</span>
                   </div>
                   
+                  {/* Completion Toggle Button */}
+                  <div className="mb-2.5">
+                    <button
+                      onClick={() => toggleCompleted(hs.id)}
+                      className={`w-full py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border ${
+                        completedIds.includes(hs.id)
+                          ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20'
+                          : 'bg-white/5 text-gray-400 border-transparent hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      {completedIds.includes(hs.id) ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-green-400" /> Concluído
+                        </>
+                      ) : (
+                        <>
+                          <Award className="w-3.5 h-3.5 text-gray-400 animate-pulse" /> Concluir Ponto
+                        </>
+                      )}
+                    </button>
+                  </div>
+
                   {isAdmin ? (
                     <div className="flex gap-2">
                       <button 
@@ -358,7 +626,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       </MapContainer>
 
       {/* Floating Category Filters */}
-      <div className="absolute top-6 left-6 z-[1000] flex flex-col gap-2 max-w-[180px]">
+      <div className={`absolute top-6 left-6 z-[1000] flex flex-col gap-2 max-w-[180px] transition-all duration-300 ${isEditingHotspot ? 'opacity-30 pointer-events-none scale-95 blur-[1px]' : ''}`}>
         {isAdmin && (
           <div className="bg-steam-dark/95 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-2xl">
             <div className="flex items-center gap-2 text-[10px] font-black text-steam-highlight uppercase tracking-[0.2em]">
@@ -370,20 +638,282 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
         <div className="bg-steam-dark/95 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-2xl flex flex-col gap-1.5">
           <span className="text-[9px] font-black text-gray-500 uppercase tracking-wider mb-1 block">Filtros de Ícones</span>
-          <div className="grid grid-cols-2 gap-1.5">
+          
+          <button
+            onClick={() => setActiveFilters([])}
+            className={`w-full py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border text-center ${
+              activeFilters.length === 0 
+                ? 'bg-steam-highlight text-steam-dark border-steam-highlight shadow-[0_0_10px_rgba(102,192,244,0.2)]' 
+                : 'bg-[#10141d]/80 text-gray-400 border-white/5 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            Todos ({totalCount})
+          </button>
+
+          <div className="grid grid-cols-2 gap-1.5 mt-1">
             {filterCategories.map((cat) => {
               const active = activeFilters.includes(cat.key);
+              const count = hotspots.filter(h => (h.icon || 'target').toLowerCase().trim() === cat.key).length;
+              const completedOfCat = hotspots.filter(h => (h.icon || 'target').toLowerCase().trim() === cat.key && completedIds.includes(h.id)).length;
+
               return (
-                <button
-                  key={cat.key}
-                  onClick={() => toggleFilter(cat.key)}
-                  className={`px-2 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border text-center ${active ? 'bg-steam-highlight/20 text-steam-highlight border-steam-highlight/40' : 'bg-[#10141d]/80 text-gray-400 border-white/5 hover:bg-white/5 hover:text-white'}`}
-                >
-                  {cat.label}
-                </button>
+                <div key={cat.key} className="relative group/cat">
+                  <button
+                    onClick={() => toggleFilter(cat.key)}
+                    className={`w-full px-1.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border flex flex-col items-center justify-center ${
+                      active 
+                        ? 'bg-steam-highlight/20 text-steam-highlight border-steam-highlight/40' 
+                        : 'bg-[#10141d]/80 text-gray-400 border-white/5 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <span className="truncate max-w-full text-center">{cat.label}</span>
+                    <span className="text-[8px] opacity-60 mt-0.5 font-mono">{completedOfCat}/{count}</span>
+                  </button>
+                  {isAdmin && onUpdateCategories && (
+                    <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover/cat:opacity-100 transition-all z-20">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setEditingFilter({
+                            key: cat.key,
+                            label: cat.label,
+                            icon: cat.icon || 'target'
+                          });
+                          setShowAddFilter(false);
+                        }}
+                        className="w-4 h-4 bg-steam-highlight hover:bg-white text-steam-dark rounded-full flex items-center justify-center transition-all shadow-lg"
+                        title="Editar Filtro"
+                      >
+                        <Edit2 className="w-2.5 h-2.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          if (window.confirm(`Excluir o filtro "${cat.label}"?`)) {
+                            const currentCats = categories && categories.length > 0 ? categories : defaultFilterCategories;
+                            const nextCats = currentCats.filter(c => c.key !== cat.key);
+                            onUpdateCategories(nextCats);
+                          }
+                        }}
+                        className="w-4 h-4 bg-red-600 hover:bg-red-500 text-white rounded-full flex items-center justify-center transition-all shadow-lg"
+                        title="Excluir Filtro"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
+
+          {/* Admin filter editing */}
+          {isAdmin && editingFilter && onUpdateCategories && (
+            <div className="mt-2 border-t border-white/5 pt-2">
+              <div className="space-y-2 text-left bg-black/40 p-2 rounded-lg border border-steam-highlight/30 animate-fade-in">
+                <div className="flex items-center gap-1 text-[8px] font-black text-steam-highlight uppercase tracking-wider">
+                  <Edit2 className="w-2.5 h-2.5" /> Editar Filtro
+                </div>
+                <div>
+                  <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Nome</label>
+                  <input
+                    type="text"
+                    value={editingFilter.label}
+                    onChange={e => setEditingFilter({ ...editingFilter, label: e.target.value })}
+                    className="w-full bg-[#10141d] border border-white/10 rounded px-1.5 py-1 text-[10px] text-white font-bold outline-none focus:border-steam-highlight"
+                  />
+                </div>
+                <div>
+                  <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Símbolo</label>
+                  <select
+                    value={editingFilter.icon}
+                    onChange={e => setEditingFilter({ ...editingFilter, icon: e.target.value })}
+                    className="w-full bg-[#10141d] border border-white/10 rounded px-1 py-1 text-[10px] text-white font-bold outline-none focus:border-steam-highlight"
+                  >
+                    <option value="target">Alvo</option>
+                    <option value="map">Mapa</option>
+                    <option value="flag">Bandeira</option>
+                    <option value="info">Informação</option>
+                    <option value="camera">Câmera</option>
+                    <option value="trophy">Troféu</option>
+                    <option value="sword">Espada</option>
+                    <option value="chest">Baú</option>
+                    <option value="star">Estrela</option>
+                    <option value="skull">Caveira</option>
+                    <option value="heart">Coração</option>
+                    <option value="zap">Raio</option>
+                    <option value="shield">Escudo</option>
+                    <option value="crown">Coroa</option>
+                    <option value="key">Chave</option>
+                    <option value="gem">Gema</option>
+                    <option value="book">Livro</option>
+                  </select>
+                </div>
+                <div className="flex gap-1 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trimmed = editingFilter.label.trim();
+                      if (!trimmed) return;
+                      const currentCats = categories && categories.length > 0 ? categories : defaultFilterCategories;
+                      const nextCats = currentCats.map(c => 
+                        c.key === editingFilter.key ? { ...c, label: trimmed, icon: editingFilter.icon } : c
+                      );
+                      onUpdateCategories(nextCats);
+                      setEditingFilter(null);
+                    }}
+                    className="flex-1 py-1 bg-steam-highlight text-steam-dark hover:bg-white rounded text-[8px] font-black uppercase tracking-wider transition-colors"
+                  >
+                    Salvar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingFilter(null)}
+                    className="py-1 px-2 bg-white/5 hover:bg-white/10 text-gray-400 rounded text-[8px] font-black uppercase tracking-wider transition-colors"
+                  >
+                    Sair
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Admin filter creation */}
+          {isAdmin && onUpdateCategories && (
+            <div className="mt-2 border-t border-white/5 pt-2 flex flex-col gap-1.5">
+              {!showAddFilter ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setFilterError('');
+                      setShowAddFilter(true);
+                      setEditingFilter(null);
+                    }}
+                    className="w-full py-1.5 bg-steam-highlight/10 text-steam-highlight border border-steam-highlight/20 rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-steam-highlight hover:text-steam-dark transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-3 h-3" /> Novo Filtro
+                  </button>
+                  {categories && categories.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm("Restaurar todos os filtros para o padrão original? Isso removerá as suas customizações de categorias de filtros.")) {
+                          onUpdateCategories([]);
+                        }
+                      }}
+                      className="w-full py-1 text-[8px] text-gray-500 hover:text-steam-highlight uppercase tracking-wider transition-colors text-center font-bold"
+                    >
+                      Restaurar Padrões
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2 text-left bg-black/40 p-2 rounded-lg border border-white/5 animate-fade-in">
+                  <div>
+                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Nome do Filtro</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Santuário"
+                      value={newFilterLabel}
+                      onChange={e => {
+                        setNewFilterLabel(e.target.value);
+                        setFilterError('');
+                      }}
+                      className="w-full bg-[#10141d] border border-white/10 rounded px-1.5 py-1 text-[10px] text-white font-bold outline-none focus:border-steam-highlight"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Símbolo Base</label>
+                    <select
+                      value={newFilterIcon}
+                      onChange={e => setNewFilterIcon(e.target.value)}
+                      className="w-full bg-[#10141d] border border-white/10 rounded px-1 py-1 text-[10px] text-white font-bold outline-none focus:border-steam-highlight"
+                    >
+                      <option value="target">Alvo (Círculo)</option>
+                      <option value="map">Mapa</option>
+                      <option value="flag">Bandeira</option>
+                      <option value="info">Informação</option>
+                      <option value="camera">Câmera</option>
+                      <option value="trophy">Troféu</option>
+                      <option value="sword">Espada</option>
+                      <option value="chest">Baú</option>
+                      <option value="star">Estrela</option>
+                      <option value="skull">Caveira</option>
+                      <option value="heart">Coração</option>
+                      <option value="zap">Raio</option>
+                      <option value="shield">Escudo</option>
+                      <option value="crown">Coroa</option>
+                      <option value="key">Chave</option>
+                      <option value="gem">Gema</option>
+                      <option value="book">Livro</option>
+                    </select>
+                  </div>
+
+                  {filterError && (
+                    <p className="text-[8px] font-bold text-red-400 uppercase tracking-wider leading-tight">{filterError}</p>
+                  )}
+
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const trimmed = newFilterLabel.trim();
+                        if (!trimmed) {
+                          setFilterError('Digite o nome do filtro.');
+                          return;
+                        }
+                        
+                        // Generate key
+                        const key = trimmed
+                          .toLowerCase()
+                          .normalize('NFD')
+                          .replace(/[\u0300-\u036f]/g, '')
+                          .replace(/[^a-z0-9]/g, '_')
+                          .replace(/_+/g, '_');
+
+                        if (!key) {
+                          setFilterError('Nome inválido.');
+                          return;
+                        }
+
+                        // Check if key already exists
+                        const alreadyExists = filterCategories.some(c => c.key === key);
+                        if (alreadyExists) {
+                          setFilterError('Filtro já existe.');
+                          return;
+                        }
+
+                        const currentCats = categories && categories.length > 0 ? categories : defaultFilterCategories;
+                        const newFilter = { key, label: trimmed, icon: newFilterIcon };
+                        onUpdateCategories([...currentCats, newFilter]);
+                        
+                        setNewFilterLabel('');
+                        setNewFilterIcon('target');
+                        setShowAddFilter(false);
+                      }}
+                      className="flex-1 py-1 bg-steam-highlight text-steam-dark hover:bg-white rounded text-[8px] font-black uppercase tracking-wider transition-colors"
+                    >
+                      Salvar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewFilterLabel('');
+                        setNewFilterIcon('target');
+                        setShowAddFilter(false);
+                        setFilterError('');
+                      }}
+                      className="py-1 px-2 bg-white/5 hover:bg-white/10 text-gray-400 rounded text-[8px] font-black uppercase tracking-wider transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {activeFilters.length > 0 && (
             <button
               onClick={() => setActiveFilters([])}
@@ -392,6 +922,23 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
               Limpar Filtros
             </button>
           )}
+        </div>
+
+        {/* Progress Tracker Panel */}
+        <div className="bg-steam-dark/95 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-2xl flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black text-steam-highlight uppercase tracking-wider">Progresso</span>
+            <span className="text-[9px] font-mono font-bold text-white">
+              {completedCount}/{totalCount}
+            </span>
+          </div>
+          <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden border border-white/5">
+            <div 
+              className="bg-gradient-to-r from-steam-highlight to-green-500 h-full transition-all duration-500" 
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <span className="text-[8px] text-gray-400 font-bold text-center mt-0.5 uppercase tracking-widest">{percent}% Concluído</span>
         </div>
       </div>
 
@@ -449,7 +996,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
       {/* Real-time Cursor Coordinates Display */}
       {hoverCoords && (
-        <div className="absolute bottom-6 left-6 z-[1000] bg-steam-dark/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-white/10 shadow-2xl font-mono text-[10px] text-gray-400 flex items-center gap-3">
+        <div className={`absolute bottom-6 left-6 z-[1000] bg-steam-dark/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-white/10 shadow-2xl font-mono text-[10px] text-gray-400 flex items-center gap-3 transition-all duration-300 ${isEditingHotspot ? 'opacity-30 pointer-events-none' : ''}`}>
           <div className="flex items-center gap-1.5">
             <span className="text-steam-highlight font-black">X:</span>
             <span className="text-white font-bold">{hoverCoords.x.toFixed(1)}%</span>
@@ -463,7 +1010,24 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       )}
 
       {/* Custom Controls */}
-      <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-[1000]">
+      <div className={`absolute bottom-6 right-6 flex flex-col gap-2 z-[1000] transition-all duration-300 ${isEditingHotspot ? 'opacity-30 pointer-events-none scale-95 blur-[1px]' : ''}`}>
+        {isAdmin && !imageUrl.startsWith('/tiles/') && (
+          <button 
+            onClick={handleTileImage}
+            disabled={isTiling}
+            className={`w-10 h-10 bg-steam-dark/95 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center text-gray-400 hover:text-steam-highlight hover:border-steam-highlight/50 transition-all shadow-2xl group ${isTiling ? 'animate-pulse' : ''}`}
+            title="Otimizar para Alta Resolução (Tiling)"
+          >
+            <Sparkles className={`w-5 h-5 group-active:scale-90 transition-transform ${isTiling ? 'text-steam-highlight animate-spin' : ''}`} />
+          </button>
+        )}
+        <button 
+          onClick={() => setShowHelp(true)}
+          className="w-10 h-10 bg-steam-dark/95 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center text-gray-400 hover:text-steam-highlight hover:border-steam-highlight/50 transition-all shadow-2xl group"
+          title="Como Usar o Mapa"
+        >
+          <HelpCircle className="w-5 h-5 group-active:scale-90 transition-transform" />
+        </button>
         <button 
           onClick={handleRecenter}
           className="w-10 h-10 bg-steam-dark/95 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center text-gray-400 hover:text-steam-highlight hover:border-steam-highlight/50 transition-all shadow-2xl group"
@@ -487,9 +1051,86 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         </div>
       </div>
 
+      {/* Backdrop overlay covering map when editing hotspot */}
+      {isEditingHotspot && (
+        <div className="absolute inset-0 bg-[#080b11]/60 backdrop-blur-[1.5px] z-[1200] flex items-center justify-center pointer-events-auto transition-all duration-300">
+          <div className="bg-[#1b2838]/95 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-2xl max-w-xs text-center flex flex-col items-center gap-3 animate-fade-in">
+            <div className="w-12 h-12 rounded-full bg-steam-highlight/10 flex items-center justify-center text-steam-highlight animate-pulse">
+              <Target className="w-6 h-6 animate-spin-slow" />
+            </div>
+            <h4 className="text-xs font-black uppercase tracking-wider text-white">Edição de Ponto Ativa</h4>
+            <p className="text-[10px] text-gray-400 font-bold leading-relaxed">
+              O painel de filtros e controles do mapa estão desativados enquanto você configura este ponto no formulário superior.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Help Modal */}
+      {showHelp && (
+        <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-[2000] flex items-center justify-center p-6 animate-fade-in">
+          <div className="bg-[#1b2838] p-6 rounded-3xl w-full max-w-sm border border-white/10 shadow-5xl relative animate-scale-in">
+            <button 
+              onClick={() => setShowHelp(false)}
+              className="absolute top-4 right-4 p-1.5 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/5">
+              <div className="w-8 h-8 rounded-lg bg-steam-highlight/10 flex items-center justify-center text-steam-highlight">
+                <HelpCircle className="w-5 h-5" />
+              </div>
+              <h3 className="text-xs font-black text-white uppercase tracking-widest">Guia do Caçador</h3>
+            </div>
+            <div className="space-y-3.5 text-xs text-gray-300">
+              <div className="flex items-start gap-2.5">
+                <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center font-mono text-[10px] text-steam-highlight font-black shrink-0">1</div>
+                <div>
+                  <p className="font-bold text-white mb-0.5">Filtrar e Buscar</p>
+                  <p className="text-[11px] text-gray-400">Use o menu lateral esquerdo para filtrar por categorias ou a barra de busca no topo para achar pontos de interesse específicos.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center font-mono text-[10px] text-steam-highlight font-black shrink-0">2</div>
+                <div>
+                  <p className="font-bold text-white mb-0.5">Acompanhar Progresso</p>
+                  <p className="text-[11px] text-gray-400">Clique em qualquer ponto do mapa e marque-o como <span className="text-green-400 font-bold">"Concluído"</span> para acompanhar seu avanço em tempo real no painel de progresso.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center font-mono text-[10px] text-steam-highlight font-black shrink-0">3</div>
+                <div>
+                  <p className="font-bold text-white mb-0.5">Navegação e Zoom</p>
+                  <p className="text-[11px] text-gray-400">Arraste o mapa com o mouse, role a rodinha para zoom, ou use os botões rápidos no canto inferior direito para navegar.</p>
+                </div>
+              </div>
+              {isAdmin && (
+                <div className="flex items-start gap-2.5 p-2.5 bg-steam-highlight/5 rounded-xl border border-steam-highlight/10">
+                  <div className="w-5 h-5 rounded-full bg-steam-highlight/10 flex items-center justify-center font-mono text-[10px] text-steam-highlight font-black shrink-0">🛠️</div>
+                  <div>
+                    <p className="font-bold text-steam-highlight mb-0.5 uppercase tracking-wide text-[10px]">Ações de Administrador</p>
+                    <p className="text-[10px] text-gray-400">Clique em qualquer parte vazia do mapa para inserir um novo ponto ou arraste os ícones existentes para ajustar as coordenadas.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setShowHelp(false)}
+              className="w-full mt-5 py-2.5 bg-steam-highlight text-steam-dark rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white transition-all shadow-md"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
       <style>{`
         .leaflet-container {
           background-color: #0b0e14 !important;
+        }
+        .leaflet-container img {
+          max-width: none !important;
+          max-height: none !important;
         }
         .custom-popup .leaflet-popup-content-wrapper {
           background: transparent !important;

@@ -627,6 +627,37 @@ const BuilderBlock: React.FC<{
                 <textarea className="w-full bg-black/40 border border-transparent rounded-lg p-4 text-white text-lg h-24 resize-none focus:border-steam-highlight outline-none font-sans leading-relaxed italic" value={tempValue.synopsis} onChange={e => setTempValue({...tempValue, synopsis: e.target.value})} placeholder="Descreva o contexto desta mídia..." />
               </div>
             )}
+
+            {content.type === 'interactive-map' && (
+              <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-4">
+                <h5 className="text-[10px] text-steam-highlight font-black uppercase tracking-wider">Dimensões da Imagem do Mapa</h5>
+                <p className="text-[10px] text-gray-400 font-medium">
+                  Insira o tamanho original da imagem do mapa (em pixels). Isso garante que o mapa seja exibido na proporção exata, eliminando barras pretas ou espaços vazios nas laterais e no fundo.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[9px] text-gray-500 font-black uppercase mb-1 block">Largura da Imagem (PX)</label>
+                    <input 
+                      type="number"
+                      value={tempValue.mapWidth || ''} 
+                      onChange={e => setTempValue({ ...tempValue, mapWidth: e.target.value ? parseInt(e.target.value) : undefined })}
+                      placeholder="Ex: 2048"
+                      className="w-full bg-black/40 border border-transparent rounded-lg p-2 text-white text-xs outline-none focus:border-steam-highlight font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-gray-500 font-black uppercase mb-1 block">Altura da Imagem (PX)</label>
+                    <input 
+                      type="number"
+                      value={tempValue.mapHeight || ''} 
+                      onChange={e => setTempValue({ ...tempValue, mapHeight: e.target.value ? parseInt(e.target.value) : undefined })}
+                      placeholder="Ex: 2048"
+                      className="w-full bg-black/40 border border-transparent rounded-lg p-2 text-white text-xs outline-none focus:border-steam-highlight font-mono font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
          </div>
       </div>
     );
@@ -831,13 +862,25 @@ const BuilderBlock: React.FC<{
           )}
 
           {content.type === 'interactive-map' && (
-            <div className="p-6 bg-[#0d0f13] rounded-2xl border border-transparent shadow-2xl">
-              <h4 className="font-black text-steam-highlight mb-6 uppercase text-[11px] tracking-[0.3em]">{content.title}</h4>
-              <div className="h-[600px] rounded-2xl overflow-hidden bg-black border border-white/5">
+            <div className="bg-[#0d0f13] rounded-2xl border border-white/5 shadow-2xl overflow-hidden">
+              <div className="pt-6 px-6">
+                <h4 className="font-black text-steam-highlight mb-4 uppercase text-[11px] tracking-[0.3em]">{content.title}</h4>
+              </div>
+              <div className="bg-black/20 h-[500px] md:h-[600px] w-full relative">
                 <InteractiveMap 
                   imageUrl={content.content}
+                  mapId={content.id}
+                  mapWidth={content.mapWidth}
+                  mapHeight={content.mapHeight}
+                  onUpdateMapDimensions={(width, height) => {
+                    onUpdate({ ...content, mapWidth: width, mapHeight: height });
+                  }}
+                  onUpdateImageUrl={(newUrl) => {
+                    onUpdate({ ...content, content: newUrl });
+                  }}
                   hotspots={content.mapHotspots || []}
                   isAdmin={isEditMode}
+                  isEditingHotspot={!!editingHotspot}
                   onAddHotspot={(x, y) => {
                     const newHotspot: MapHotspot = {
                       id: `hs_${Date.now()}`,
@@ -868,6 +911,11 @@ const BuilderBlock: React.FC<{
                     toast.success('Ponto removido do mapa');
                   }}
                   onHotspotClick={handleHotspotClick}
+                  categories={content.mapFilters || []}
+                  onUpdateCategories={(newCats) => {
+                    onUpdate({ ...content, mapFilters: newCats });
+                    toast.success('Filtros do mapa atualizados!');
+                  }}
                 />
               </div>
             </div>
@@ -1113,6 +1161,16 @@ const BuilderBlock: React.FC<{
                           className={`p-2 rounded-lg text-xs font-bold transition-all border flex flex-col items-center gap-1 ${editingHotspot.icon?.toLowerCase() === icName.toLowerCase() ? 'bg-steam-highlight/20 text-steam-highlight border-steam-highlight/50' : 'bg-white/5 text-gray-400 border-transparent hover:bg-white/10'}`}
                         >
                           <span className="text-[10px]">{icName}</span>
+                        </button>
+                      ))}
+                      {(content.mapFilters || []).map((cat: any) => (
+                        <button
+                          key={cat.key}
+                          type="button"
+                          onClick={() => setEditingHotspot({ ...editingHotspot, icon: cat.key })}
+                          className={`p-2 rounded-lg text-xs font-bold transition-all border flex flex-col items-center gap-1 ${editingHotspot.icon?.toLowerCase() === cat.key.toLowerCase() ? 'bg-steam-highlight/20 text-steam-highlight border-steam-highlight/50' : 'bg-white/5 text-gray-400 border-transparent hover:bg-white/10'}`}
+                        >
+                          <span className="text-[10px] text-steam-highlight font-black">{cat.label}</span>
                         </button>
                       ))}
                     </div>

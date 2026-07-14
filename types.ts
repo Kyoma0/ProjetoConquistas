@@ -316,6 +316,9 @@ export interface Content {
   zoom?: number; // Para imagem interativa
   mapBaseUrl?: string;
   mapMaxZoom?: number;
+  mapFilters?: { key: string; label: string }[];
+  mapWidth?: number;
+  mapHeight?: number;
 }
 
 export interface Game {
