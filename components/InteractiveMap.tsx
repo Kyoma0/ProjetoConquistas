@@ -503,7 +503,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         bounds={bounds}
         maxBounds={maxBounds}
         maxBoundsViscosity={1.0}
-        maxZoom={5}
+        maxZoom={10}
         minZoom={-12}
         style={{ height: '100%', width: '100%', background: '#0b0e14' }}
         attributionControl={false}
@@ -516,7 +516,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
             url={`${imageUrl}/{z}/{x}/{y}.png`}
             noWrap={true}
             bounds={bounds}
-            maxZoom={5}
+            maxZoom={10}
             minZoom={-12}
           />
         ) : (

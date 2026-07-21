@@ -105,6 +105,45 @@ async function startServer() {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
 
+  // Ensure default map image exists as robust fallback
+  try {
+    const files = fs.readdirSync(uploadsDir).filter(f => {
+      const ext = path.extname(f).toLowerCase();
+      return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext);
+    });
+    if (files.length === 0) {
+      console.log('No images found in uploads. Generating a default fallback map image...');
+      const fallbackFile = path.join(uploadsDir, 'default_map_fallback.png');
+      const width = 2048;
+      const height = 2048;
+      
+      const svgImage = `
+        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100%" height="100%" fill="#0b0e14" />
+          <g stroke="#1a202c" stroke-width="2">
+            ${Array.from({ length: 21 }, (_, i) => {
+              const pos = (i * width) / 20;
+              return `
+                <line x1="${pos}" y1="0" x2="${pos}" y2="${height}" />
+                <line x1="0" y1="${pos}" x2="${width}" y2="${pos}" />
+              `;
+            }).join('')}
+          </g>
+          <text x="50%" y="45%" fill="#38bdf8" font-family="sans-serif" font-size="64" font-weight="bold" text-anchor="middle">ACHIEVEMENT HUB MAP</text>
+          <text x="50%" y="52%" fill="#94a3b8" font-family="sans-serif" font-size="32" text-anchor="middle">Default Map Fallback (No uploaded image found)</text>
+          <text x="50%" y="58%" fill="#64748b" font-family="sans-serif" font-size="28" text-anchor="middle">Please upload your custom map image in the Admin Panel</text>
+        </svg>
+      `;
+
+      await sharp(Buffer.from(svgImage))
+        .png()
+        .toFile(fallbackFile);
+      console.log('Default fallback map image generated successfully at:', fallbackFile);
+    }
+  } catch (err) {
+    console.error('Error checking or generating fallback map image:', err);
+  }
+
   // Ensure tiles directory exists
   const tilesDir = path.join(__dirname, 'public', 'tiles');
   if (!fs.existsSync(tilesDir)) {
@@ -588,8 +627,21 @@ async function startServer() {
       if (imageUrl.startsWith('/uploads/')) {
         imageSource = path.join(__dirname, 'public', imageUrl.replace(/^\//, ''));
         if (!fs.existsSync(imageSource)) {
-          console.warn(`Tiling skipped: Local file not found at ${imageSource}`);
-          return res.status(404).json({ error: 'Local image file not found', path: imageUrl });
+          console.warn(`Tiling skipped: Local file not found at ${imageSource}, searching for fallback...`);
+          try {
+            const files = fs.readdirSync(uploadsDir).filter(file => {
+              const ext = path.extname(file).toLowerCase();
+              return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext);
+            });
+            if (files.length > 0) {
+              imageSource = path.join(uploadsDir, files[0]);
+              console.log(`Using fallback image for tiling: ${imageSource}`);
+            } else {
+              return res.status(404).json({ error: 'Local image file not found', path: imageUrl });
+            }
+          } catch (e) {
+            return res.status(404).json({ error: 'Local image file not found', path: imageUrl });
+          }
         }
       } else {
         // Validate external URL to prevent SSRF
