@@ -16,7 +16,7 @@ import { StoreView } from './components/StoreView';
 import { AdsView } from './components/AdsView';
 import { EventsView } from './components/EventsView';
 import { CommunitiesView } from './components/CommunitiesView';
-import { Trophy, ArrowRight, CheckCircle2, AlertCircle, Info, Medal, Crown, TrendingUp, Users as UsersIcon, Star, Ghost, Clock, UserPlus, LogIn, Lock, Mail, User, Calendar, X, Database, Shield, Check } from 'lucide-react';
+import { Trophy, ArrowRight, CheckCircle2, AlertCircle, Info, Medal, Crown, TrendingUp, Users as UsersIcon, Star, Ghost, Clock, UserPlus, LogIn, Lock, Mail, User, Calendar, X, Database, Shield, Check, Gamepad2 } from 'lucide-react';
 import { AchievementStatus, UserAchievementProgress } from './types';
 import { getLevelInfo } from './constants';
 
@@ -74,7 +74,7 @@ const AppContent: React.FC = () => {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [chatWithUserId, setChatWithUserId] = useState<string | null>(null);
-  const [view, setView] = useState<'home' | 'game' | 'admin' | 'profile' | 'library' | 'favorites' | 'lives' | 'friends' | 'chat' | 'store' | 'ads' | 'events' | 'communities'>('home');
+  const [view, setView] = useState<'home' | 'game' | 'admin' | 'profile' | 'library' | 'favorites' | 'lives' | 'friends' | 'chat' | 'store' | 'ads' | 'events' | 'communities' | 'catalog'>('home');
   
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
 
@@ -154,6 +154,10 @@ const AppContent: React.FC = () => {
   const favoriteGames = useMemo(() => {
     return games.filter(g => currentUser?.favoriteGameIds.includes(g.id));
   }, [games, currentUser?.favoriteGameIds]);
+
+  const activeGames = useMemo(() => {
+    return games.filter(g => g.isActive);
+  }, [games]);
 
   const globalStats = useMemo(() => {
     const totalAch = achievements.length;
@@ -619,6 +623,7 @@ const AppContent: React.FC = () => {
             onSelectGame={(id) => { setSelectedGameId(id); setView('game'); }} 
             selectedGameId={selectedGameId} 
             onNavigateHome={() => setView('home')} 
+            onNavigateCatalog={() => setView('catalog')}
             onNavigateAdmin={() => setView('admin')} 
             onNavigateLibrary={() => setView('library')}
             onNavigateFavorites={() => setView('favorites')}
@@ -714,6 +719,7 @@ const AppContent: React.FC = () => {
             {view === 'profile' && <Profile userId={selectedUserId || currentUser.id} />}
             {view === 'library' && <GameGrid title="Sua Biblioteca" games={libraryGames} onSelectGame={(id) => { setSelectedGameId(id); setView('game'); }} />}
             {view === 'favorites' && <GameGrid title="Favoritos" games={favoriteGames} onSelectGame={(id) => { setSelectedGameId(id); setView('game'); }} />}
+            {view === 'catalog' && <GameGrid title="Catálogo Global" games={activeGames} onSelectGame={(id) => { setSelectedGameId(id); setView('game'); }} />}
             {view === 'lives' && <Lives />}
             {view === 'friends' && <FriendsView onNavigateProfile={navigateToProfile} onOpenChat={handleOpenChat} />}
             {view === 'chat' && chatWithUserId && <ChatView userId={chatWithUserId} onBack={() => setView('friends')} />}

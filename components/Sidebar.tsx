@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { Search, Gamepad2, Star, Ghost, Shield, Library, Heart, Radio, Users, User as UserIcon, Maximize2, ShoppingBag, Calendar } from 'lucide-react';
+import { Gamepad2, Star, Ghost, Shield, Library, Heart, Radio, Users, User as UserIcon, Maximize2, ShoppingBag, Calendar } from 'lucide-react';
 
 interface SidebarProps {
   onSelectGame: (gameId: string) => void;
   selectedGameId: string | null;
   onNavigateHome: () => void;
+  onNavigateCatalog: () => void;
   onNavigateAdmin: () => void;
   onNavigateLibrary: () => void;
   onNavigateFavorites: () => void;
@@ -21,6 +22,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectGame, 
   selectedGameId, 
   onNavigateHome, 
+  onNavigateCatalog,
   onNavigateAdmin,
   onNavigateLibrary,
   onNavigateFavorites,
@@ -31,7 +33,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigateCommunities
 }) => {
   const { games, currentUser, users, systemSettings, onlineUsers } = useApp();
-  const [searchTerm, setSearchTerm] = useState('');
   const [friendsHeight, setFriendsHeight] = useState(240);
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -70,11 +71,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, [isResizing]);
 
-  const activeGames = games.filter(g => g.isActive);
-  const filteredGames = activeGames.filter(g => 
-    g.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   const myFriends = useMemo(() => {
     return users.filter(u => currentUser?.friendIds?.includes(u.id));
   }, [users, currentUser?.friendIds]);
@@ -90,31 +86,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div ref={sidebarRef} className="w-full bg-steam-dark flex flex-col h-full border-r border-transparent shrink-0 z-50">
       <div className="p-4 border-b border-transparent">
-        <div className="flex items-center gap-2 mb-4 px-1">
-            <Gamepad2 className="w-6 h-6 text-steam-highlight" />
-            <span className="font-bold text-white tracking-tight">GAME HUB</span>
-        </div>
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Filtrar catálogo..."
-            className="w-full bg-steam-light/20 text-steam-accent text-xs p-2 pl-8 rounded border border-transparent focus:border-steam-highlight focus:outline-none transition-colors"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <Search className="w-3 h-3 absolute left-2 top-2.5 text-steam-accent/50" />
+        <div 
+          onClick={onNavigateHome}
+          className="flex items-center gap-2 mb-1 px-1 cursor-pointer select-none group"
+        >
+            <Gamepad2 className="w-6 h-6 text-steam-highlight group-hover:scale-110 transition-transform" />
+            <span className="font-bold text-white tracking-tight group-hover:text-steam-highlight transition-colors">GAME HUB</span>
         </div>
       </div>
 
-      <div className="flex flex-col p-2 space-y-1 mt-2">
+      <div className="flex flex-col p-2 space-y-1 mt-2 flex-1 overflow-y-auto custom-scrollbar">
         {systemSettings.isCatalogEnabled && (
-          <button 
-            onClick={onNavigateHome}
-            className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-steam-accent hover:bg-steam-light/40 rounded transition-colors text-left"
-          >
-            <Star className="w-4 h-4 text-steam-highlight" />
-            <span>Catálogo de Desafios</span>
-          </button>
+          <>
+            <button 
+              onClick={onNavigateHome}
+              className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-steam-accent hover:bg-steam-light/40 rounded transition-colors text-left"
+            >
+              <Star className="w-4 h-4 text-steam-highlight" />
+              <span>Catálogo de Desafios</span>
+            </button>
+            <button 
+              onClick={onNavigateCatalog}
+              className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-steam-accent hover:bg-steam-light/40 rounded transition-colors text-left"
+            >
+              <Gamepad2 className="w-4 h-4 text-steam-highlight" />
+              <span>Catálogo Global</span>
+            </button>
+          </>
         )}
         
         {systemSettings.isLibraryEnabled && (
@@ -185,29 +183,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
            <span>Painel Admin</span>
          </button>
         )}
-      </div>
-
-      <div className="px-4 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider mt-4">
-        Catálogo Global ({filteredGames.length})
-      </div>
-
-      <div className="flex-1 overflow-y-auto custom-scrollbar pb-4">
-        {filteredGames.map(game => (
-          <button
-            key={game.id}
-            onClick={() => onSelectGame(game.id)}
-            className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors text-left group border-l-2
-              ${selectedGameId === game.id ? 'bg-steam-light border-steam-highlight text-white' : 'border-transparent text-steam-accent hover:bg-steam-light/20 hover:text-white'}
-            `}
-          >
-            <img src={game.coverUrl || undefined} alt={game.title} className="w-6 h-8 object-cover rounded shadow-sm opacity-80 group-hover:opacity-100" />
-            <div className="flex-1 truncate">
-              <span className={`block truncate ${selectedGameId === game.id ? 'font-bold' : 'font-medium'}`}>
-                {game.title}
-              </span>
-            </div>
-          </button>
-        ))}
       </div>
 
       <div 
