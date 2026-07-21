@@ -105,44 +105,39 @@ async function startServer() {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
 
-  // Ensure default map image exists as robust fallback
-  try {
-    const files = fs.readdirSync(uploadsDir).filter(f => {
-      const ext = path.extname(f).toLowerCase();
-      return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext);
-    });
-    if (files.length === 0) {
-      console.log('No images found in uploads. Generating a default fallback map image...');
-      const fallbackFile = path.join(uploadsDir, 'default_map_fallback.png');
-      const width = 2048;
-      const height = 2048;
-      
-      const svgImage = `
-        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-          <rect width="100%" height="100%" fill="#0b0e14" />
-          <g stroke="#1a202c" stroke-width="2">
-            ${Array.from({ length: 21 }, (_, i) => {
-              const pos = (i * width) / 20;
-              return `
-                <line x1="${pos}" y1="0" x2="${pos}" y2="${height}" />
-                <line x1="0" y1="${pos}" x2="${width}" y2="${pos}" />
-              `;
-            }).join('')}
-          </g>
-          <text x="50%" y="45%" fill="#38bdf8" font-family="sans-serif" font-size="64" font-weight="bold" text-anchor="middle">ACHIEVEMENT HUB MAP</text>
-          <text x="50%" y="52%" fill="#94a3b8" font-family="sans-serif" font-size="32" text-anchor="middle">Default Map Fallback (No uploaded image found)</text>
-          <text x="50%" y="58%" fill="#64748b" font-family="sans-serif" font-size="28" text-anchor="middle">Please upload your custom map image in the Admin Panel</text>
-        </svg>
-      `;
-
-      await sharp(Buffer.from(svgImage))
-        .png()
-        .toFile(fallbackFile);
-      console.log('Default fallback map image generated successfully at:', fallbackFile);
+  // Ensure default fallback map image always exists
+  const fallbackFile = path.join(uploadsDir, 'default_map_fallback.png');
+  const ensureFallbackImage = async () => {
+    try {
+      if (!fs.existsSync(fallbackFile)) {
+        console.log('Generating default fallback map image...');
+        const width = 2048;
+        const height = 2048;
+        const svgImage = `
+          <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" fill="#0b0e14" />
+            <g stroke="#1a202c" stroke-width="2">
+              ${Array.from({ length: 21 }, (_, i) => {
+                const pos = (i * width) / 20;
+                return `
+                  <line x1="${pos}" y1="0" x2="${pos}" y2="${height}" />
+                  <line x1="0" y1="${pos}" x2="${width}" y2="${pos}" />
+                `;
+              }).join('')}
+            </g>
+            <text x="50%" y="45%" fill="#38bdf8" font-family="sans-serif" font-size="64" font-weight="bold" text-anchor="middle">ACHIEVEMENT HUB MAP</text>
+            <text x="50%" y="52%" fill="#94a3b8" font-family="sans-serif" font-size="32" text-anchor="middle">Mapa Padrão (Imagem não encontrada)</text>
+            <text x="50%" y="58%" fill="#64748b" font-family="sans-serif" font-size="28" text-anchor="middle">Faça o upload da imagem do mapa no Painel Admin</text>
+          </svg>
+        `;
+        await sharp(Buffer.from(svgImage)).png().toFile(fallbackFile);
+        console.log('Default fallback map image generated successfully at:', fallbackFile);
+      }
+    } catch (err) {
+      console.error('Error generating fallback map image:', err);
     }
-  } catch (err) {
-    console.error('Error checking or generating fallback map image:', err);
-  }
+  };
+  await ensureFallbackImage();
 
   // Ensure tiles directory exists
   const tilesDir = path.join(__dirname, 'public', 'tiles');
@@ -628,9 +623,8 @@ async function startServer() {
   // --- SUBSCRIPTION STUB ENDPOINT ---
   app.get('/api/subscription/status', (req, res) => {
     res.json({
-      plan: 'free',
-      status: 'active',
-      expiresAt: null
+      isVip: false,
+      vipUntil: null
     });
   });
 
@@ -732,32 +726,37 @@ async function startServer() {
   });
 
   // Serve uploaded files with dynamic fallback to prevent image loading errors in stateless environments
-  app.get('/uploads/:filename', (req, res, next) => {
+  app.get('/uploads/:filename', async (req, res) => {
     const filename = req.params.filename;
     const filePath = path.join(uploadsDir, filename);
 
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-      res.sendFile(filePath);
-    } else {
-      console.warn(`File ${filename} not found in uploads. Finding fallback...`);
-      try {
-        const files = fs.readdirSync(uploadsDir).filter(file => {
-          const ext = path.extname(file).toLowerCase();
-          return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext) && file !== filename;
-        });
-
-        if (files.length > 0) {
-          const fallbackPath = path.join(uploadsDir, files[0]);
-          console.log(`Serving fallback image: ${files[0]} for requested: ${filename}`);
-          res.sendFile(fallbackPath);
-        } else {
-          res.status(404).send('Image not found');
-        }
-      } catch (err) {
-        console.error('Error finding fallback image:', err);
-        res.status(404).send('Image not found');
-      }
+      return res.sendFile(filePath);
     }
+
+    console.warn(`File ${filename} not found in uploads. Finding fallback...`);
+    try {
+      const files = fs.readdirSync(uploadsDir).filter(file => {
+        const ext = path.extname(file).toLowerCase();
+        return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext) && file !== filename;
+      });
+
+      if (files.length > 0) {
+        const fallbackPath = path.join(uploadsDir, files[0]);
+        console.log(`Serving fallback image: ${files[0]} for requested: ${filename}`);
+        return res.sendFile(fallbackPath);
+      }
+    } catch (err) {
+      console.error('Error finding fallback image:', err);
+    }
+
+    // Ensure fallback file exists and serve it
+    await ensureFallbackImage();
+    if (fs.existsSync(fallbackFile)) {
+      return res.sendFile(fallbackFile);
+    }
+
+    res.status(404).send('Image not found');
   });
 
   app.use('/uploads', express.static(uploadsDir));

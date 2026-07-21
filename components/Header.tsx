@@ -57,17 +57,25 @@ export const Header: React.FC<HeaderProps> = ({ onNavigateProfile, onSelectGame 
             g.isActive && g.title.toLowerCase().includes(debouncedTerm)
         ).slice(0, 5);
 
-        const matchedAchievements = achievements.filter(a => 
-            a.name.toLowerCase().includes(debouncedTerm) || 
-            (a.description && a.description.toLowerCase().includes(debouncedTerm))
-        ).slice(0, 5);
+        const matchedAchievements = achievements.filter(a => {
+            const matchesText = a.name.toLowerCase().includes(debouncedTerm) || 
+                (a.description && a.description.toLowerCase().includes(debouncedTerm));
+            if (!matchesText) return false;
+
+            if (a.isHidden) {
+                const isUnlocked = (userProgress[a.id] as UserAchievementProgress)?.status === AchievementStatus.COMPLETED;
+                return isUnlocked;
+            }
+
+            return true;
+        }).slice(0, 5);
 
         const matchedSubPages = subPages.filter(sp => 
             sp.title.toLowerCase().includes(debouncedTerm)
         ).slice(0, 5);
 
         return { matchedGames, matchedAchievements, matchedSubPages };
-    }, [debouncedTerm, games, achievements, subPages]);
+    }, [debouncedTerm, games, achievements, subPages, userProgress]);
 
     const hasResults = debouncedTerm.length > 0 && (
         searchResults.matchedGames.length > 0 ||

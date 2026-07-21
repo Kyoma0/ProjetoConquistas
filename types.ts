@@ -18,8 +18,6 @@ export interface User {
   balance: number;
   xp: number;
   steamId?: string;
-  subscriptionPlan?: 'free' | 'premium';
-  subscriptionExpiresAt?: string;
 }
 
 export interface GameEvent {

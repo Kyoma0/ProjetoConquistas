@@ -58,7 +58,7 @@ class BackendService {
   }
 
   // --- SUBSCRIPTION (STUB) ---
-  async getSubscriptionStatus(): Promise<{ plan: string; status: string; expiresAt: string | null }> {
+  async getSubscriptionStatus(): Promise<{ isVip: boolean; vipUntil: string | null }> {
     return this.request('/subscription/status');
   }
 }

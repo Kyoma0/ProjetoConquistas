@@ -345,7 +345,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         }
       };
       img.onerror = () => {
-        console.error("Error loading map image:", imageUrl);
+        console.warn("Map image failed to load or fallback used:", imageUrl);
         // Fallback for failed images
         setImageSize({ width: 2000, height: 2000 });
         setMapReady(true);
