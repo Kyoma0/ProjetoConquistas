@@ -640,7 +640,10 @@ const AppContent: React.FC = () => {
         </div>
       )}
       <main className="flex-1 h-full flex flex-col relative overflow-hidden bg-steam-base">
-        <Header onNavigateProfile={() => navigateToProfile()} />
+        <Header 
+          onNavigateProfile={() => navigateToProfile()} 
+          onSelectGame={(id) => { setSelectedGameId(id); setView('game'); }}
+        />
         <div className="flex-1 overflow-y-auto custom-scrollbar relative">
           <AnimatePresence mode="wait">
             <motion.div

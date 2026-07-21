@@ -595,6 +595,45 @@ async function startServer() {
     }
   });
 
+  app.get('/api/steam/achievement-percentages/:appId', async (req, res) => {
+    const { appId } = req.params;
+    const apiKey = process.env.STEAM_API_KEY;
+    
+    try {
+      const keyParam = (apiKey && apiKey !== 'your_steam_api_key_here') ? `&key=${apiKey}` : '';
+      const url = `https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid=${appId}${keyParam}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: `Erro na API da Steam (${response.status}) ao buscar percentuais de conquistas.` });
+      }
+
+      const data = await response.json();
+      
+      if (data.achievementpercentages && data.achievementpercentages.achievements) {
+        const list = data.achievementpercentages.achievements.map((item: any) => ({
+          name: item.name,
+          percent: Number(item.percent)
+        }));
+        res.json(list);
+      } else {
+        res.json([]);
+      }
+    } catch (error) {
+      console.error('Steam Achievement Percentages Error:', error);
+      res.status(500).json({ error: 'Erro ao consultar percentuais de conquistas da Steam' });
+    }
+  });
+
+  // --- SUBSCRIPTION STUB ENDPOINT ---
+  app.get('/api/subscription/status', (req, res) => {
+    res.json({
+      plan: 'free',
+      status: 'active',
+      expiresAt: null
+    });
+  });
+
   // --- IMAGE TILING API ---
   app.post('/api/tile-image', async (req, res) => {
     const { imageUrl, mapId } = req.body;

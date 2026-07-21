@@ -52,6 +52,15 @@ class BackendService {
   async getOwnedGames(steamId: string): Promise<any[]> {
     return this.request(`/steam/owned-games/${steamId}`);
   }
+
+  async getGlobalAchievementPercentages(appId: string): Promise<{ name: string; percent: number }[]> {
+    return this.request(`/steam/achievement-percentages/${appId}`);
+  }
+
+  // --- SUBSCRIPTION (STUB) ---
+  async getSubscriptionStatus(): Promise<{ plan: string; status: string; expiresAt: string | null }> {
+    return this.request('/subscription/status');
+  }
 }
 
 export const api = new BackendService();

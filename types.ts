@@ -18,6 +18,8 @@ export interface User {
   balance: number;
   xp: number;
   steamId?: string;
+  subscriptionPlan?: 'free' | 'premium';
+  subscriptionExpiresAt?: string;
 }
 
 export interface GameEvent {
@@ -184,6 +186,8 @@ export interface Achievement {
   isHidden: boolean;
   difficulty: Difficulty;
   steamApiName?: string;
+  globalUnlockPercent?: number;
+  platform?: 'steam' | 'xbox' | 'psn' | 'epic';
   updatedAt?: string;
 }
 
@@ -332,6 +336,7 @@ export interface Game {
   steamAppId?: string;
   coverPosition?: string;
   bannerPosition?: string;
+  platform?: 'steam' | 'xbox' | 'psn' | 'epic';
 }
 
 export interface ToastMessage {

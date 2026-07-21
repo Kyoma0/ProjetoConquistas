@@ -39,6 +39,7 @@ import { RenderAchIcon } from './AdminPanel';
 import { AIAssistant } from './AIAssistant';
 import { InteractiveMap } from './InteractiveMap';
 import { chunkedUpload } from '../services/uploadService';
+import { api } from '../backend';
 
 interface GameDetailProps {
   game: Game;
@@ -1635,6 +1636,27 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
   const [activeTab, setActiveTab] = useState<'achievements' | 'extras' | 'wiki'>('achievements');
   const [editMode, setEditMode] = useState(false);
   const [currentSubPageId, setCurrentSubPageId] = useState<string | null>(null);
+  const [globalPercentages, setGlobalPercentages] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!game.steamAppId) return;
+    let isMounted = true;
+    api.getGlobalAchievementPercentages(game.steamAppId)
+      .then(data => {
+        if (!isMounted || !Array.isArray(data)) return;
+        const map: Record<string, number> = {};
+        data.forEach(item => {
+          if (item && item.name) {
+            map[item.name] = item.percent;
+          }
+        });
+        setGlobalPercentages(map);
+      })
+      .catch(() => {
+        // Fallback silencioso sem interromper a UI
+      });
+    return () => { isMounted = false; };
+  }, [game.steamAppId]);
 
   const stats = useMemo(() => {
     const list = achievements.filter(a => a.gameId === game.id);
@@ -2203,6 +2225,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
                  {gameAchievements.map(ach => {
                     const status = userProgress[ach.id]?.status || AchievementStatus.LOCKED;
                     const isUnlocked = status === AchievementStatus.COMPLETED;
+                    const unlockPercent = ach.globalUnlockPercent ?? globalPercentages[ach.steamApiName || ''] ?? globalPercentages[ach.name];
                     
                     return (
                       <div 
@@ -2237,6 +2260,11 @@ export const GameDetail: React.FC<GameDetailProps> = ({ game, onNavigateProfile 
                         <div className="text-right">
                            <div className={`text-[9px] font-black uppercase tracking-widest mb-1 ${getDifficultyColor(ach.difficulty)}`}>{ach.difficulty}</div>
                            <div className="text-xs font-black text-gray-600">{ach.xp} XP</div>
+                           {unlockPercent !== undefined && (
+                             <div className="text-[9px] font-bold text-steam-highlight/90 uppercase tracking-wider mt-1">
+                               Apenas {unlockPercent.toFixed(1)}% conquistaram
+                             </div>
+                           )}
                         </div>
                       </div>
                     );

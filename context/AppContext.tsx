@@ -263,7 +263,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (currentUser && currentUser.isVip && currentUser.vipUntil) {
       if (new Date(currentUser.vipUntil) < new Date()) {
-        updateUser(currentUser.id, { isVip: false, vipUntil: undefined });
+        updateUser(currentUser.id, { isVip: false, vipUntil: deleteField() as any });
         showToast("Seu status VIP expirou.", "info");
       }
     }
@@ -737,7 +737,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateUser = async (id: string, data: Partial<User>) => { 
     try {
-      await updateDoc(doc(db, 'users', id), data).catch(e => handleFirestoreError(e, OperationType.UPDATE, `users/${id}`));
+      const cleanData: Record<string, any> = {};
+      Object.entries(data).forEach(([key, value]) => {
+        if (value === undefined) {
+          cleanData[key] = deleteField();
+        } else {
+          cleanData[key] = value;
+        }
+      });
+      await updateDoc(doc(db, 'users', id), cleanData).catch(e => handleFirestoreError(e, OperationType.UPDATE, `users/${id}`));
       // Local state will be updated by onSnapshot
     } catch (err) {
       console.error("Error updating user:", err);
@@ -1115,7 +1123,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (u) {
       let updated: Partial<User>;
       if (u.isVip && !months) {
-        updated = { isVip: false, vipUntil: undefined };
+        updated = { isVip: false, vipUntil: deleteField() as any };
       } else {
         const duration = months || 1;
         const until = new Date();
