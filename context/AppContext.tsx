@@ -641,7 +641,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         friendIds: [],
         ownedItemIds: [],
         balance: 0,
-        xp: 0
+        xp: 0,
+        termsAcceptedAt: new Date().toISOString()
       };
       
       console.log("Salvando dados do usuário no Firestore...");
@@ -698,7 +699,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         friendIds: [],
         ownedItemIds: [],
         balance: 0,
-        xp: 0
+        xp: 0,
+        termsAcceptedAt: new Date().toISOString()
       };
       
       await setDoc(doc(db, 'users', pendingUser.uid), newUser).catch(e => handleFirestoreError(e, OperationType.CREATE, `users/${pendingUser.uid}`));

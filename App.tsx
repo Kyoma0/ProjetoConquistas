@@ -16,6 +16,8 @@ import { StoreView } from './components/StoreView';
 import { AdsView } from './components/AdsView';
 import { EventsView } from './components/EventsView';
 import { CommunitiesView } from './components/CommunitiesView';
+import { TermsView } from './components/TermsView';
+import { PrivacyView } from './components/PrivacyView';
 import { Trophy, ArrowRight, CheckCircle2, AlertCircle, Info, Medal, Crown, TrendingUp, Users as UsersIcon, Star, Ghost, Clock, UserPlus, LogIn, Lock, Mail, User, Calendar, X, Database, Shield, Check, Gamepad2 } from 'lucide-react';
 import { AchievementStatus, UserAchievementProgress } from './types';
 import { getLevelInfo } from './constants';
@@ -74,9 +76,11 @@ const AppContent: React.FC = () => {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [chatWithUserId, setChatWithUserId] = useState<string | null>(null);
-  const [view, setView] = useState<'home' | 'game' | 'admin' | 'profile' | 'library' | 'favorites' | 'lives' | 'friends' | 'chat' | 'store' | 'ads' | 'events' | 'communities' | 'catalog'>('home');
+  const [view, setView] = useState<'home' | 'game' | 'admin' | 'profile' | 'library' | 'favorites' | 'lives' | 'friends' | 'chat' | 'store' | 'ads' | 'events' | 'communities' | 'catalog' | 'terms' | 'privacy'>('home');
   
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState<'terms' | 'privacy' | null>(null);
 
   // Injetar estilos dinâmicos (cores e fontes)
   useEffect(() => {
@@ -225,10 +229,17 @@ const AppContent: React.FC = () => {
     const name = nameInput.trim();
     const password = passwordInput;
 
-    if (authMode === 'register' && password !== confirmPasswordInput) {
-        showToast("As senhas não coincidem.", "error");
-        setIsAuthLoading(false);
-        return;
+    if (authMode === 'register') {
+        if (!termsAccepted) {
+            showToast("Você precisa aceitar os Termos de Uso e a Política de Privacidade para criar uma conta.", "error");
+            setIsAuthLoading(false);
+            return;
+        }
+        if (password !== confirmPasswordInput) {
+            showToast("As senhas não coincidem.", "error");
+            setIsAuthLoading(false);
+            return;
+        }
     }
 
     setIsAuthLoading(true);
@@ -497,26 +508,58 @@ const AppContent: React.FC = () => {
                 )}
 
                 {authMode === 'register' && (
-                  <div className="animate-fade-in space-y-2">
-                    <label className="block text-[10px] uppercase font-black text-gray-500 ml-1 tracking-widest">Confirmar Senha</label>
-                    <div className="relative group">
-                      <input 
-                        type="password" 
-                        required 
-                        minLength={8}
-                        placeholder="••••••••" 
-                        value={confirmPasswordInput} 
-                        onChange={(e) => setConfirmPasswordInput(e.target.value)} 
-                        className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 pl-12 text-white focus:border-steam-highlight focus:ring-1 focus:ring-steam-highlight/50 focus:outline-none transition-all font-bold placeholder:text-gray-700" 
-                      />
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600 group-focus-within:text-steam-highlight transition-colors" />
+                  <>
+                    <div className="animate-fade-in space-y-2">
+                      <label className="block text-[10px] uppercase font-black text-gray-500 ml-1 tracking-widest">Confirmar Senha</label>
+                      <div className="relative group">
+                        <input 
+                          type="password" 
+                          required 
+                          minLength={8}
+                          placeholder="••••••••" 
+                          value={confirmPasswordInput} 
+                          onChange={(e) => setConfirmPasswordInput(e.target.value)} 
+                          className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 pl-12 text-white focus:border-steam-highlight focus:ring-1 focus:ring-steam-highlight/50 focus:outline-none transition-all font-bold placeholder:text-gray-700" 
+                        />
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600 group-focus-within:text-steam-highlight transition-colors" />
+                      </div>
                     </div>
-                  </div>
+
+                    <div className="animate-fade-in pt-1">
+                      <div className="flex items-start gap-3 bg-black/30 p-3.5 rounded-2xl border border-white/5 group hover:border-white/10 transition-colors">
+                        <input
+                          type="checkbox"
+                          id="termsCheckbox"
+                          checked={termsAccepted}
+                          onChange={(e) => setTermsAccepted(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded bg-black/50 border-white/20 text-steam-highlight focus:ring-steam-highlight focus:ring-offset-0 cursor-pointer accent-steam-highlight shrink-0"
+                        />
+                        <label htmlFor="termsCheckbox" className="text-[11px] text-gray-400 font-medium leading-relaxed select-none">
+                          Li e concordo com os{' '}
+                          <button
+                            type="button"
+                            onClick={() => setTermsModalOpen('terms')}
+                            className="text-steam-highlight font-bold underline hover:text-white transition-colors"
+                          >
+                            Termos de Uso
+                          </button>{' '}
+                          e a{' '}
+                          <button
+                            type="button"
+                            onClick={() => setTermsModalOpen('privacy')}
+                            className="text-steam-highlight font-bold underline hover:text-white transition-colors"
+                          >
+                            Política de Privacidade
+                          </button>
+                        </label>
+                      </div>
+                    </div>
+                  </>
                 )}
                 
                 <button 
-                  disabled={isAuthLoading}
-                  className={`w-full bg-gradient-to-r from-steam-highlight to-blue-600 hover:from-blue-500 hover:to-blue-400 text-steam-dark font-black uppercase tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3 transform active:scale-95 text-xs group ${isAuthLoading ? 'opacity-70 cursor-not-allowed' : 'hover:-translate-y-1'}`}
+                  disabled={isAuthLoading || (authMode === 'register' && !termsAccepted)}
+                  className={`w-full bg-gradient-to-r from-steam-highlight to-blue-600 hover:from-blue-500 hover:to-blue-400 text-steam-dark font-black uppercase tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3 transform active:scale-95 text-xs group ${isAuthLoading || (authMode === 'register' && !termsAccepted) ? 'opacity-50 cursor-not-allowed' : 'hover:-translate-y-1'}`}
                 >
                     {isAuthLoading ? (
                       <div className="flex items-center gap-2">
@@ -632,6 +675,8 @@ const AppContent: React.FC = () => {
             onNavigateStore={() => setView('store')}
             onNavigateEvents={() => setView('events')}
             onNavigateCommunities={() => setView('communities')}
+            onNavigateTerms={() => setView('terms')}
+            onNavigatePrivacy={() => setView('privacy')}
           />
           <div 
             onMouseDown={startResizing}
@@ -730,6 +775,8 @@ const AppContent: React.FC = () => {
             {view === 'events' && <EventsView />}
             {view === 'communities' && <CommunitiesView />}
             {view === 'ads' && <AdsView onBack={() => setView('store')} />}
+            {view === 'terms' && <TermsView onBack={() => setView('home')} />}
+            {view === 'privacy' && <PrivacyView onBack={() => setView('home')} />}
           </motion.div>
         </AnimatePresence>
         </div>
@@ -771,6 +818,31 @@ const AppContent: React.FC = () => {
               <button onClick={handleCloseNotification} className="w-full mt-4 py-4 bg-white/5 text-gray-400 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-white/10 transition-all">
                 Fechar
               </button>
+            </div>
+          </div>
+        )}
+
+        {termsModalOpen && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[3000] flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+            <div className="bg-[#0b0e14] border border-white/10 rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative">
+              <div className="p-4 bg-[#1b2838] border-b border-white/10 flex items-center justify-between shrink-0">
+                <span className="text-xs font-black text-white uppercase tracking-widest pl-2">
+                  {termsModalOpen === 'terms' ? 'Termos de Uso' : 'Política de Privacidade'}
+                </span>
+                <button 
+                  onClick={() => setTermsModalOpen(null)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {termsModalOpen === 'terms' ? (
+                  <TermsView onBack={() => setTermsModalOpen(null)} />
+                ) : (
+                  <PrivacyView onBack={() => setTermsModalOpen(null)} />
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -16,6 +16,8 @@ interface SidebarProps {
   onNavigateStore: () => void;
   onNavigateEvents: () => void;
   onNavigateCommunities: () => void;
+  onNavigateTerms?: () => void;
+  onNavigatePrivacy?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -30,7 +32,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigateFriends,
   onNavigateStore,
   onNavigateEvents,
-  onNavigateCommunities
+  onNavigateCommunities,
+  onNavigateTerms,
+  onNavigatePrivacy
 }) => {
   const { games, currentUser, users, systemSettings, onlineUsers } = useApp();
   const [friendsHeight, setFriendsHeight] = useState(240);
@@ -231,8 +235,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
          </div>
       </div>
       
-      <div className="p-4 text-[10px] text-gray-600 text-center border-t border-transparent shrink-0">
-         v1.7.0 • Admin Events Control Integrated
+      <div className="p-4 text-[10px] text-gray-500 text-center border-t border-white/5 shrink-0 space-y-2">
+         <div className="flex items-center justify-center gap-3 font-semibold">
+           {onNavigateTerms && (
+             <button 
+               onClick={onNavigateTerms}
+               className="hover:text-steam-highlight transition-colors underline underline-offset-2"
+             >
+               Termos de Uso
+             </button>
+           )}
+           <span className="text-gray-700">•</span>
+           {onNavigatePrivacy && (
+             <button 
+               onClick={onNavigatePrivacy}
+               className="hover:text-steam-highlight transition-colors underline underline-offset-2"
+             >
+               Política de Privacidade
+             </button>
+           )}
+         </div>
+         <div className="text-[9px] text-gray-600 font-medium">
+           v1.7.0 • Admin Events Control Integrated
+         </div>
       </div>
     </div>
   );

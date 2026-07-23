@@ -18,6 +18,7 @@ export interface User {
   balance: number;
   xp: number;
   steamId?: string;
+  termsAcceptedAt?: string; // ISO string timestamp of terms acceptance
 }
 
 export interface GameEvent {
